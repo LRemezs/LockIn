@@ -11,7 +11,7 @@ export default function LoginScreen() {
   const handleLogin = async () => {
     try {
       await login(email, password);
-      router.push("/today"); // Redirect to main app
+      router.push("/dashboard"); // Redirect to main app
     } catch (error) {
       Alert.alert("Login Failed", error.message);
     }
