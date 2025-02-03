@@ -20,6 +20,12 @@ export default function Dashboard() {
       <Text style={{ marginTop: 20 }}>
         Selected Date: {selectedDate.toDateString()}
       </Text>
+
+      {/*Add the rest of UI 
+        => box with suggested to-dos based on time left (filled when there's an active event)
+        => box for next scheduled event with countdown and location stuff 
+        => button to add event
+      */}
     </View>
   );
 }
