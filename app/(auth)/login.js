@@ -1,7 +1,8 @@
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Alert, Button, StyleSheet, Text, TextInput, View } from "react-native";
-import { login } from "../../utils/auth";
+import { user$ } from "../../state/state"; // Import Legend-State global user state
+import { supabase } from "../../state/supabaseClient";
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
@@ -10,8 +11,28 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     try {
-      await login(email, password);
-      router.push("/dashboard"); // Redirect to main app
+      // Authenticate user with Supabase
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) throw error; // Stop if there's an error
+
+      // Get the user profile from Supabase
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("name, email")
+        .eq("id", data.user.id)
+        .single();
+
+      if (profileError) throw profileError;
+
+      // Store user data in Legend-State for global access
+      user$.set({ name: profile.name, email: profile.email, loggedIn: true });
+
+      // Redirect to dashboard
+      router.push("/dashboard");
     } catch (error) {
       Alert.alert("Login Failed", error.message);
     }
