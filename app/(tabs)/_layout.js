@@ -5,7 +5,7 @@ export default function TabsLayout() {
     <Tabs initialRouteName="dashboard" screenOptions={{ headerShown: false }}>
       <Tabs.Screen name="profile" options={{ title: "Profile" }} />
       <Tabs.Screen name="dashboard" options={{ title: "Dashboard" }} />
-      <Tabs.Screen name="manager" options={{ title: "Manager" }} />
+      <Tabs.Screen name="calendar" options={{ title: "Calendar" }} />
     </Tabs>
   );
 }
