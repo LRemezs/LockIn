@@ -28,8 +28,15 @@ export default function LoginScreen() {
 
       if (profileError) throw profileError;
 
-      // Store user data in Legend-State for global access
-      user$.set({ name: profile.name, email: profile.email, loggedIn: true });
+      // 🔹 Store full user data, including `id`
+      user$.set({
+        id: data.user.id, // ✅ Now storing user ID!
+        name: profile.name,
+        email: profile.email,
+        loggedIn: true,
+      });
+
+      console.log("🟢 User logged in:", user$.get()); // ✅ Debug log
 
       // Redirect to dashboard
       router.push("/dashboard");

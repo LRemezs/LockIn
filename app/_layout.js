@@ -1,51 +1,65 @@
 import { Slot, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
-import { user$ } from "../state/state"; // Import Legend-State global user state
+import { startLocationTracking, user$ } from "../state/state"; // Import Legend-State global user state
 import { supabase } from "../state/supabaseClient";
 
 export default function RootLayout() {
   const [isAuthenticated, setIsAuthenticated] = useState(null);
   const router = useRouter();
 
-  useEffect(() => {
-    async function checkUser() {
-      // Get the current session from Supabase
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+  async function checkUser() {
+    const { data, error } = await supabase.auth.getUser();
 
-      if (user) {
-        // Fetch user profile from Supabase
-        const { data: profile, error } = await supabase
-          .from("profiles")
-          .select("name, email")
-          .eq("id", user.id)
-          .single();
-
-        if (!error) {
-          user$.set({
-            name: profile.name,
-            email: profile.email,
-            loggedIn: true,
-          });
-          setIsAuthenticated(true);
-        } else {
-          setIsAuthenticated(false);
-        }
-      } else {
-        setIsAuthenticated(false);
-      }
+    if (!data?.user) {
+      console.warn("⚠️ No user session found. Redirecting to login.");
+      setIsAuthenticated(false);
+      return;
     }
 
-    checkUser();
+    const user = data.user;
+    console.log("🟢 User detected in _layout.js:", user);
 
-    // Listen for authentication state changes
+    // ✅ Fetch profile details from Supabase
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("name, email")
+      .eq("id", user.id)
+      .single();
+
+    if (profileError) {
+      console.error("❌ Error fetching user profile:", profileError.message);
+      setIsAuthenticated(false);
+      return;
+    }
+
+    // ✅ Store full user state in Legend-State
+    user$.set({
+      id: user.id, // ✅ Ensure user ID is stored
+      name: profile.name || "Unknown",
+      email: profile.email || "No email",
+      loggedIn: true,
+    });
+
+    console.log("🟢 Updated user state:", user$.get());
+    setIsAuthenticated(true);
+
+    startLocationTracking(); // ✅ Start tracking user location when logged in
+  }
+
+  useEffect(() => {
+    checkUser(); // ✅ Ensure `user.id` is set at startup
+
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        if (event === "SIGNED_IN" || event === "SIGNED_OUT") {
-          checkUser();
-          if (!session) router.push("/login"); // Redirect to login if user logs out
+        console.log(`🔄 Auth state changed: ${event}`);
+
+        if (session?.user) {
+          checkUser(); // ✅ Re-run checkUser() on login
+        } else {
+          user$.set({ id: "", name: "", email: "", loggedIn: false }); // ✅ Clear state on logout
+          setIsAuthenticated(false);
+          router.push("/login");
         }
       }
     );

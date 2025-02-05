@@ -1,9 +1,27 @@
+import { useSelector } from "@legendapp/state/react";
 import React from "react";
-import { FlatList, StyleSheet, Text, View } from "react-native";
-import { events$ } from "../../../state/state"; // Import Legend-State store
+import {
+  FlatList,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { events$ } from "../../../state/state";
+import { formatTimeToHHMM, handleDeleteEvent } from "../../utils/eventHandlers";
 
-export default function ScheduleSection({ selectedDate }) {
-  const eventsForSelectedDate = events$.get()?.[selectedDate] || [];
+export default function ScheduleSection({ selectedDate, onEdit }) {
+  const allEvents = useSelector(events$) || [];
+
+  if (!Array.isArray(allEvents)) {
+    console.error("❌ events$ is not an array, received:", allEvents);
+    return null;
+  }
+
+  // ✅ Filter & sort events by date and start time
+  const eventsForSelectedDate = allEvents
+    .filter((event) => event.date === selectedDate)
+    .sort((a, b) => (a.start_time || "").localeCompare(b.start_time || ""));
 
   return (
     <View style={styles.scheduleContainer}>
@@ -14,12 +32,35 @@ export default function ScheduleSection({ selectedDate }) {
       {eventsForSelectedDate.length > 0 ? (
         <FlatList
           data={eventsForSelectedDate}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item) => item.id || Math.random().toString()}
           renderItem={({ item }) => (
-            <Text style={styles.eventText}>
-              {item.type} - {item.duration} hrs (
-              {item.location || "No location"})
-            </Text>
+            <View style={styles.eventItem}>
+              <View style={styles.eventDetails}>
+                <Text style={styles.eventText}>
+                  {item.title || "Untitled Event"} -{" "}
+                  {formatTimeToHHMM(item.start_time)} to{" "}
+                  {formatTimeToHHMM(item.end_time)} (
+                  {item.location || "No location"})
+                </Text>
+                {item.distance !== undefined && (
+                  <Text style={styles.extraInfo}>
+                    📍 {item.distance.toFixed(2)} miles away
+                  </Text>
+                )}
+                {item.travelTime && (
+                  <Text style={styles.extraInfo}>🚗 {item.travelTime}</Text>
+                )}
+              </View>
+              <View style={styles.buttons}>
+                <TouchableOpacity onPress={() => onEdit({ ...item })}>
+                  {/* ✅ Ensure `eventToEdit` is passed correctly */}
+                  <Text style={styles.editButton}>✏️</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => handleDeleteEvent(item.id)}>
+                  <Text style={styles.deleteButton}>🗑️</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
           )}
         />
       ) : (
@@ -31,6 +72,7 @@ export default function ScheduleSection({ selectedDate }) {
 
 const styles = StyleSheet.create({
   scheduleContainer: {
+    flex: 1,
     marginTop: 20,
     padding: 15,
     backgroundColor: "#f0f0f0",
@@ -40,14 +82,45 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "bold",
   },
-  schedulePlaceholder: {
-    fontSize: 14,
-    color: "#888",
-    marginTop: 5,
+  eventItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginVertical: 5,
+    backgroundColor: "#fff",
+    padding: 10,
+    borderRadius: 8,
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+    elevation: 3,
+  },
+  eventDetails: {
+    flex: 1,
   },
   eventText: {
     fontSize: 16,
-    marginTop: 5,
-    fontWeight: "bold",
+  },
+  extraInfo: {
+    fontSize: 14,
+    color: "#666",
+  },
+  buttons: {
+    flexDirection: "row",
+  },
+  editButton: {
+    marginRight: 10,
+    fontSize: 18,
+    color: "#4CAF50",
+  },
+  deleteButton: {
+    fontSize: 18,
+    color: "red",
+  },
+  schedulePlaceholder: {
+    textAlign: "center",
+    marginTop: 20,
+    fontSize: 16,
+    color: "#666",
   },
 });

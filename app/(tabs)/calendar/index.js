@@ -1,83 +1,69 @@
-import React, { useEffect, useState } from "react";
-import { Button, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useSelector } from "@legendapp/state/react";
+import React, { useEffect, useMemo, useState } from "react";
+import {
+  ActivityIndicator,
+  Button,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { Calendar } from "react-native-calendars";
-import { events$ } from "../../../state/state"; // Import Legend-State store
-import { supabase } from "../../../state/supabaseClient"; // Fix import
+import { events$, fetchEvents, user$ } from "../../../state/state";
 import DayChart from "../../components/calendar/DayChart";
 import EventForm from "../../components/calendar/EventForm";
 import ScheduleSection from "../../components/calendar/ScheduleSection";
+import {
+  handleAddEvent,
+  handleCloseModal,
+  handleDeleteEvent,
+  handleEditEvent,
+} from "../../utils/eventHandlers";
 
 export default function CalendarScreen() {
+  const user = useSelector(user$);
   const today = new Date().toISOString().split("T")[0];
   const [selectedDate, setSelectedDate] = useState(today);
-  const [markedDates, setMarkedDates] = useState({});
   const [modalVisible, setModalVisible] = useState(false);
+  const [eventToEdit, setEventToEdit] = useState(null);
+  const [loading, setLoading] = useState(true); // ✅ Track loading state
 
-  // Input states for new event creation
-  const [eventTitle, setEventTitle] = useState("");
-  const [eventDuration, setEventDuration] = useState("");
-  const [eventLocation, setEventLocation] = useState("");
-
-  // // 🔹 Fetch events on mount
-  // useEffect(() => {
-  //   fetchEvents();
-  // }, []);
-
-  // 🔹 Update marked dates when events change
+  // ✅ Fetch events when the screen mounts
   useEffect(() => {
+    async function loadEvents() {
+      await fetchEvents(); // ✅ Fetch events from Supabase
+      setLoading(false); // ✅ Hide loader once data is fetched
+    }
+    loadEvents();
+  }, []);
+
+  // ✅ Memoized Marked Dates
+  const markedDates = useMemo(() => {
+    if (loading) return {}; // ✅ Avoid rendering empty calendar before data loads
     const updatedMarkedDates = {};
-    Object.keys(events$.get()).forEach((date) => {
-      updatedMarkedDates[date] = {
+    events$.get().forEach((event) => {
+      updatedMarkedDates[event.date] = {
         marked: true,
         dotColor: "#4CAF50",
       };
     });
+    return updatedMarkedDates;
+  }, [events$, loading]);
 
-    setMarkedDates(updatedMarkedDates);
-  }, [events$]); // 🔹 Auto-update when Legend-State changes
+  const selectedEvents = useMemo(() => {
+    if (loading) return [];
+    return events$.get().filter((event) => event.date === selectedDate);
+  }, [events$, selectedDate, loading]);
 
-  // 🔹 Handle new event creation
-
-  const handleAddEvent = async (title, duration, location) => {
-    try {
-      const newEvent = {
-        date: selectedDate,
-        title: title,
-        duration: parseInt(duration, 10),
-        location: location,
-      };
-
-      const { data, error } = await supabase
-        .from("events")
-        .insert([newEvent])
-        .select("*");
-
-      if (error) throw error;
-
-      const addedEvent = data[0];
-
-      events$.set((prevEvents) => {
-        const updatedEvents = { ...prevEvents };
-        if (!updatedEvents[selectedDate]) {
-          updatedEvents[selectedDate] = [];
-        }
-        updatedEvents[selectedDate] = [
-          ...updatedEvents[selectedDate],
-          {
-            id: addedEvent.id, // Ensure id is included
-            type: addedEvent.title, // Ensure correct key name
-            duration: addedEvent.duration,
-            location: addedEvent.location,
-          },
-        ];
-        return updatedEvents;
-      });
-
-      setModalVisible(false);
-    } catch (error) {
-      console.error("Error adding event:", error.message);
-    }
-  };
+  // ✅ Show loader while waiting for data
+  if (loading) {
+    return (
+      <View style={styles.loaderContainer}>
+        <ActivityIndicator size="large" color="#4CAF50" />
+        <Text>Loading your schedule...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -101,8 +87,7 @@ export default function CalendarScreen() {
         }}
         dayComponent={({ date, state }) => {
           const isSelected = selectedDate === date.dateString;
-          const isToday =
-            date.dateString === new Date().toISOString().split("T")[0];
+          const isToday = date.dateString === today;
 
           return (
             <View>
@@ -130,99 +115,53 @@ export default function CalendarScreen() {
         }}
       />
 
-      <ScheduleSection selectedDate={selectedDate} />
+      <ScheduleSection
+        selectedDate={selectedDate}
+        onEdit={(event) =>
+          handleEditEvent(event, setEventToEdit, setModalVisible)
+        }
+        onDelete={handleDeleteEvent}
+      />
 
-      {/* Add Event Button */}
-      <Button title="Add Event" onPress={() => setModalVisible(true)} />
+      <Button
+        title="Add Event"
+        onPress={() => handleAddEvent(setEventToEdit, setModalVisible)}
+      />
 
       <EventForm
         visible={modalVisible}
-        onClose={() => setModalVisible(false)}
-        onSave={(title, duration, location) =>
-          handleAddEvent(title, duration, location)
+        onClose={() =>
+          handleCloseModal(setModalVisible, () => setEventToEdit(null))
         }
         selectedDate={selectedDate}
+        eventToEdit={eventToEdit}
+        userId={user.id}
       />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 2,
-    backgroundColor: "#afa", //page background
-  },
-
+  container: { flex: 1, padding: 2, backgroundColor: "#afa" },
+  loaderContainer: { flex: 1, justifyContent: "center", alignItems: "center" }, // ✅ Loader style
   calendarContainer: {
     overflow: "hidden",
     borderRadius: 25,
-    backgroundColor: "#a5a", // calendar header background
+    backgroundColor: "#a5a",
   },
-
   dayTouchable: {
     alignItems: "center",
     justifyContent: "center",
     padding: 1,
     backgroundColor: "transparent",
   },
-
   selectedDayBackground: {
-    backgroundColor: "#4CAF50", // selected date background
+    backgroundColor: "#4CAF50",
     borderRadius: 8,
     paddingHorizontal: 5,
   },
-
-  selectedDayText: {
-    color: "#fff", // Selected date text color
-    fontWeight: "bold",
-  },
-
-  todayText: {
-    color: "#ff9800", // Today's date text coloe
-    fontWeight: "bold",
-  },
-
-  disabledText: {
-    color: "#555", // Text color from dates outside of current month
-  },
-
-  dayText: {
-    fontSize: 10,
-    fontWeight: "bold",
-  },
-
-  scheduleContainer: {
-    marginTop: 20,
-    padding: 15,
-    backgroundColor: "#f0f0f0",
-    borderRadius: 10,
-  },
-  scheduleTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-  },
-  schedulePlaceholder: {
-    fontSize: 14,
-    color: "#888",
-    marginTop: 5,
-  },
-  eventText: {
-    fontSize: 16,
-    marginTop: 5,
-    fontWeight: "bold",
-  },
-  modalContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "rgba(204, 30, 30, 0.5)",
-  },
-  modalContent: {
-    width: "80%",
-    padding: 20,
-    backgroundColor: "white",
-    borderRadius: 10,
-    alignItems: "center",
-  },
+  selectedDayText: { color: "#fff", fontWeight: "bold" },
+  todayText: { color: "#ff9800", fontWeight: "bold" },
+  disabledText: { color: "#555" },
+  dayText: { fontSize: 10, fontWeight: "bold" },
 });

@@ -1,48 +1,152 @@
-import React, { useState } from "react";
-import { Button, Modal, StyleSheet, Text, TextInput, View } from "react-native";
+import React, { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Button,
+  Modal,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
+import {
+  formatTimeToHHMM,
+  handleSaveEvent,
+  handleTimeChange,
+  resetEventForm,
+} from "../../utils/eventHandlers";
+import LocationSearch from "./LocationSearch";
 
-export default function EventForm({ visible, onClose, onSave, selectedDate }) {
+export default function EventForm({
+  visible,
+  onClose,
+  selectedDate,
+  eventToEdit,
+  userId,
+}) {
   const [eventTitle, setEventTitle] = useState("");
-  const [eventDuration, setEventDuration] = useState("");
-  const [eventLocation, setEventLocation] = useState("");
+  const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
+  const [trackLocation, setTrackLocation] = useState(false);
+  const [location, setLocation] = useState({
+    address: "",
+    latitude: null,
+    longitude: null,
+  });
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSave = () => {
-    if (!eventTitle.trim() || !eventDuration.trim()) {
-      alert("Please enter an event title and duration.");
-      return;
+  useEffect(() => {
+    if (eventToEdit) {
+      console.log("🟢 Editing event:", eventToEdit);
+      setEventTitle(eventToEdit.title || "");
+      setStartTime(formatTimeToHHMM(eventToEdit.start_time || ""));
+      setEndTime(formatTimeToHHMM(eventToEdit.end_time || ""));
+      setTrackLocation(eventToEdit.track_location || false);
+      setLocation({
+        address: eventToEdit.location || "",
+        latitude: eventToEdit.latitude ?? null,
+        longitude: eventToEdit.longitude ?? null,
+      });
+    } else {
+      resetEventForm(
+        setEventTitle,
+        setStartTime,
+        setEndTime,
+        setTrackLocation,
+        setLocation
+      );
     }
-    onSave(eventTitle, eventDuration, eventLocation);
-    setEventTitle("");
-    setEventDuration("");
-    setEventLocation("");
-  };
+  }, [eventToEdit]);
 
   return (
     <Modal visible={visible} transparent animationType="slide">
       <View style={styles.modalContainer}>
         <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>Create Event for {selectedDate}</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Event Title"
-            value={eventTitle}
-            onChangeText={setEventTitle}
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Duration (hours)"
-            keyboardType="numeric"
-            value={eventDuration}
-            onChangeText={setEventDuration}
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Location (optional)"
-            value={eventLocation}
-            onChangeText={setEventLocation}
-          />
-          <Button title="Save Event" onPress={handleSave} />
-          <Button title="Close" onPress={onClose} />
+          <View style={styles.inputContainer}>
+            <Text style={styles.modalTitle}>
+              {eventToEdit ? "Edit Event" : "Create Event"} for {selectedDate}
+            </Text>
+
+            <TextInput
+              style={styles.input}
+              placeholder="Event Title"
+              value={eventTitle}
+              onChangeText={setEventTitle}
+              editable={!isLoading}
+            />
+
+            <TextInput
+              style={styles.input}
+              placeholder="Start Time (HH:MM)"
+              value={startTime}
+              keyboardType="numeric"
+              onChangeText={(text) => handleTimeChange(text, setStartTime)}
+              editable={!isLoading}
+            />
+
+            <TextInput
+              style={styles.input}
+              placeholder="End Time (HH:MM)"
+              value={endTime}
+              keyboardType="numeric"
+              onChangeText={(text) => handleTimeChange(text, setEndTime)}
+              editable={!isLoading}
+            />
+
+            <View style={styles.switchContainer}>
+              <Text>Enable travel tracking</Text>
+              <Switch
+                value={trackLocation}
+                onValueChange={setTrackLocation}
+                disabled={isLoading}
+              />
+            </View>
+
+            {trackLocation && (
+              <View style={styles.locationContainer}>
+                <LocationSearch
+                  onLocationSelect={setLocation}
+                  defaultValue={location.address}
+                />
+              </View>
+            )}
+          </View>
+
+          <View style={styles.buttonContainer}>
+            {isLoading ? (
+              <ActivityIndicator size="large" color="#4CAF50" />
+            ) : (
+              <>
+                <Button
+                  title={eventToEdit ? "Update Event" : "Save Event"}
+                  onPress={() =>
+                    handleSaveEvent(
+                      eventToEdit,
+                      selectedDate,
+                      eventTitle,
+                      startTime,
+                      endTime,
+                      trackLocation,
+                      location,
+                      userId,
+                      onClose,
+                      () =>
+                        resetEventForm(
+                          setEventTitle,
+                          setStartTime,
+                          setEndTime,
+                          setTrackLocation,
+                          setLocation
+                        ),
+                      setIsLoading
+                    )
+                  }
+                  disabled={isLoading}
+                />
+                <Button title="Close" onPress={onClose} disabled={isLoading} />
+              </>
+            )}
+          </View>
         </View>
       </View>
     </Modal>
@@ -54,19 +158,17 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "rgba(204, 30, 30, 0.5)",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
   },
   modalContent: {
-    width: "80%",
-    padding: 20,
+    width: "85%",
     backgroundColor: "white",
     borderRadius: 10,
-    alignItems: "center",
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 10,
+    padding: 20,
+    alignSelf: "center",
+    maxHeight: "85%",
+    minHeight: 300,
+    justifyContent: "flex-start",
   },
   input: {
     width: "100%",
@@ -75,5 +177,24 @@ const styles = StyleSheet.create({
     borderColor: "#ccc",
     borderRadius: 5,
     marginBottom: 10,
+    backgroundColor: "white",
+  },
+  switchContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    width: "100%",
+    marginBottom: 10,
+  },
+  locationContainer: {
+    width: "100%",
+    marginBottom: 10,
+    minHeight: 50,
+  },
+  buttonContainer: {
+    width: "100%",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 20,
   },
 });
