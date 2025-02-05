@@ -34,7 +34,7 @@ export const getTravelInfo = async (latitude, longitude) => {
     }
 
     const destination = `${latitude},${longitude}`;
-    const apiUrl = `https://maps.googleapis.com/maps/api/directions/json?origin=${userLocation}&destination=${destination}&mode=driving&key=${GOOGLE_MAPS_API_KEY}`;
+    const apiUrl = `https://maps.googleapis.com/maps/api/directions/json?origin=${userLocation}&destination=${destination}&mode=driving&departure_time=now&traffic_model=best_guess&key=${GOOGLE_MAPS_API_KEY}`;
 
     console.log("🚀 Fetching travel info from URL:", apiUrl);
 

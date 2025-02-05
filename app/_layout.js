@@ -1,18 +1,27 @@
 import { Slot, useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
-import { startLocationTracking, user$ } from "../state/state"; // Import Legend-State global user state
+import { startLocationTracking, user$ } from "../state/state";
 import { supabase } from "../state/supabaseClient";
 
 export default function RootLayout() {
   const [isAuthenticated, setIsAuthenticated] = useState(null);
   const router = useRouter();
+  const authListenerRef = useRef(null);
 
-  async function checkUser() {
+  async function checkUser(skipLog = false) {
     const { data, error } = await supabase.auth.getUser();
 
+    if (error) {
+      if (!skipLog)
+        console.warn("⚠️ No active user session. Waiting for login...");
+      setIsAuthenticated(false);
+      return;
+    }
+
     if (!data?.user) {
-      console.warn("⚠️ No user session found. Redirecting to login.");
+      if (!skipLog)
+        console.warn("⚠️ No user session found. Redirecting to login.");
       setIsAuthenticated(false);
       return;
     }
@@ -20,7 +29,6 @@ export default function RootLayout() {
     const user = data.user;
     console.log("🟢 User detected in _layout.js:", user);
 
-    // ✅ Fetch profile details from Supabase
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("name, email")
@@ -33,9 +41,8 @@ export default function RootLayout() {
       return;
     }
 
-    // ✅ Store full user state in Legend-State
     user$.set({
-      id: user.id, // ✅ Ensure user ID is stored
+      id: user.id,
       name: profile.name || "Unknown",
       email: profile.email || "No email",
       loggedIn: true,
@@ -44,31 +51,47 @@ export default function RootLayout() {
     console.log("🟢 Updated user state:", user$.get());
     setIsAuthenticated(true);
 
-    startLocationTracking(); // ✅ Start tracking user location when logged in
+    startLocationTracking(); // ✅ Start tracking location on login
   }
 
   useEffect(() => {
-    checkUser(); // ✅ Ensure `user.id` is set at startup
+    checkUser(true);
 
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        console.log(`🔄 Auth state changed: ${event}`);
+    if (!authListenerRef.current) {
+      const { data: subscription } = supabase.auth.onAuthStateChange(
+        (event, session) => {
+          if (event === "INITIAL_SESSION") return; // ✅ Skip duplicate handling
 
-        if (session?.user) {
-          checkUser(); // ✅ Re-run checkUser() on login
-        } else {
-          user$.set({ id: "", name: "", email: "", loggedIn: false }); // ✅ Clear state on logout
-          setIsAuthenticated(false);
-          router.push("/login");
+          console.log(`🔄 Auth state changed: ${event}`);
+
+          if (session?.user) {
+            setIsAuthenticated(true);
+          } else {
+            console.log("🚪 User logged out, clearing state.");
+            user$.set({ id: "", name: "", email: "", loggedIn: false });
+            setIsAuthenticated(false);
+            router.push("/login");
+          }
         }
-      }
-    );
+      );
+
+      authListenerRef.current = subscription;
+    }
 
     return () => {
-      authListener.subscription.unsubscribe();
+      if (authListenerRef.current) {
+        authListenerRef.current.unsubscribe?.();
+        authListenerRef.current = null;
+      }
     };
   }, []);
 
+  // ✅ Show login UI immediately if user is not authenticated
+  if (isAuthenticated === false) {
+    return <Slot />;
+  }
+
+  // ✅ Show loading only when authentication state is unknown
   if (isAuthenticated === null) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
