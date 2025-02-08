@@ -32,6 +32,13 @@
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
         }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "This app needs background location access to update your travel info.",
+          "isAndroidBackgroundLocationEnabled": true
+        }
       ]
     ],
     "experiments": {

@@ -1,5 +1,5 @@
 import { useSelector } from "@legendapp/state/react";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Button,
@@ -9,7 +9,7 @@ import {
   View,
 } from "react-native";
 import { Calendar } from "react-native-calendars";
-import { events$, fetchEvents, user$ } from "../../../state/state";
+import { events$, loading$, user$ } from "../../../state/state"; // ✅ Use global loading state
 import DayChart from "../../components/calendar/DayChart";
 import EventForm from "../../components/calendar/EventForm";
 import ScheduleSection from "../../components/calendar/ScheduleSection";
@@ -26,20 +26,11 @@ export default function CalendarScreen() {
   const [selectedDate, setSelectedDate] = useState(today);
   const [modalVisible, setModalVisible] = useState(false);
   const [eventToEdit, setEventToEdit] = useState(null);
-  const [loading, setLoading] = useState(true); // ✅ Track loading state
-
-  // ✅ Fetch events when the screen mounts
-  useEffect(() => {
-    async function loadEvents() {
-      await fetchEvents(); // ✅ Fetch events from Supabase
-      setLoading(false); // ✅ Hide loader once data is fetched
-    }
-    loadEvents();
-  }, []);
+  const isLoading = useSelector(loading$); // ✅ Use global loading state
 
   // ✅ Memoized Marked Dates
   const markedDates = useMemo(() => {
-    if (loading) return {}; // ✅ Avoid rendering empty calendar before data loads
+    if (isLoading) return {}; // ✅ Avoid rendering empty calendar before data loads
     const updatedMarkedDates = {};
     events$.get().forEach((event) => {
       updatedMarkedDates[event.date] = {
@@ -48,15 +39,15 @@ export default function CalendarScreen() {
       };
     });
     return updatedMarkedDates;
-  }, [events$, loading]);
+  }, [events$, isLoading]);
 
   const selectedEvents = useMemo(() => {
-    if (loading) return [];
+    if (isLoading) return [];
     return events$.get().filter((event) => event.date === selectedDate);
-  }, [events$, selectedDate, loading]);
+  }, [events$, selectedDate, isLoading]);
 
   // ✅ Show loader while waiting for data
-  if (loading) {
+  if (isLoading) {
     return (
       <View style={styles.loaderContainer}>
         <ActivityIndicator size="large" color="#4CAF50" />

@@ -1,20 +1,28 @@
 import { GOOGLE_MAPS_API_KEY } from "@env"; // Secure API key in .env file
 import * as Location from "expo-location";
 
-// 🔹 Get user's current location
+// 🔹 Get user's current location (for full background tracking, switch to expo-task-manager in app.json to keep location updates running even when the app is closed.)
 export const getUserLocation = async () => {
   try {
-    let { status } = await Location.requestForegroundPermissionsAsync();
+    const { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== "granted") {
-      console.error("Permission to access location was denied");
-      return null;
+      console.warn("⚠️ Permission to access location was denied.");
+      return null; // Prevents undefined behavior
     }
 
-    let location = await Location.getCurrentPositionAsync({});
+    const location = await Location.getCurrentPositionAsync({
+      accuracy: Location.Accuracy.High, // ✅ Ensures accurate readings
+    });
+
+    if (!location || !location.coords) {
+      console.warn("⚠️ Failed to get location, retrying...");
+      return null; // ✅ Prevents breaking travel info updates
+    }
+
     return `${location.coords.latitude},${location.coords.longitude}`;
   } catch (error) {
-    console.error("Error fetching user location:", error);
-    return null;
+    console.error("❌ Error fetching location:", error.message);
+    return null; // ✅ Prevents crashing app if location fails
   }
 };
 
@@ -46,9 +54,22 @@ export const getTravelInfo = async (latitude, longitude) => {
       return null;
     }
 
+    // ✅ Extract relevant info
+    const route = data.routes[0]?.legs[0];
+    const distanceMiles = route?.distance?.value / 1609 || 0;
+    const travelTime = route?.duration?.text || "N/A";
+    const destinationName =
+      data.routes[0]?.legs[0]?.end_address || "Unknown Location";
+
+    console.log(
+      `📡 Travel Info: Destination: ${destinationName} (${destination}), Distance: ${distanceMiles.toFixed(
+        2
+      )} miles, Time: ${travelTime}`
+    );
+
     return {
-      distance: data.routes[0].legs[0].distance.value / 1609, // ✅ Convert meters to miles
-      travelTime: data.routes[0].legs[0].duration.text,
+      distance: distanceMiles,
+      travelTime,
     };
   } catch (error) {
     console.error("❌ Error fetching travel info:", error);
