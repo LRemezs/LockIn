@@ -7,21 +7,32 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { events$ } from "../../../state/state";
-import { formatTimeToHHMM, handleDeleteEvent } from "../../utils/eventHandlers";
+import { handleDeleteEvent } from "../../../utils/eventHandlers";
+import { formatTimeToHHMM } from "../../../utils/helperUtils";
+import {
+  displayedEvents$,
+  updateEventStatus,
+} from "../../../utils/notificationUtils";
 
 export default function ScheduleSection({ selectedDate, onEdit }) {
-  const allEvents = useSelector(events$) || [];
+  const allEvents = useSelector(displayedEvents$) || [];
 
   if (!Array.isArray(allEvents)) {
-    console.error("❌ events$ is not an array, received:", allEvents);
+    console.error("❌ displayedEvents$ is not an array, received:", allEvents);
     return null;
   }
 
-  // ✅ Filter & sort events by date and start time
-  const eventsForSelectedDate = allEvents
-    .filter((event) => event.date === selectedDate)
-    .sort((a, b) => (a.start_time || "").localeCompare(b.start_time || ""));
+  // ✅ Use displayedEvents$ directly, filtering by selected date
+  const eventsForSelectedDate = allEvents.filter(
+    (event) => event.date === selectedDate
+  );
+
+  // ✅ Handle marking an event as COMPLETE
+  const handleCompleteEvent = async (eventId) => {
+    console.log(`✅ Marking event ID ${eventId} as COMPLETE.`);
+    await updateEventStatus(eventId, "complete");
+    events$.set(events$.get().filter((e) => e.event_status !== "complete"));
+  };
 
   return (
     <View style={styles.scheduleContainer}>
@@ -32,7 +43,7 @@ export default function ScheduleSection({ selectedDate, onEdit }) {
       {eventsForSelectedDate.length > 0 ? (
         <FlatList
           data={eventsForSelectedDate}
-          keyExtractor={(item) => item.id || Math.random().toString()}
+          keyExtractor={(item) => item.id || item.title}
           renderItem={({ item }) => (
             <View style={styles.eventItem}>
               <View style={styles.eventDetails}>
@@ -42,23 +53,39 @@ export default function ScheduleSection({ selectedDate, onEdit }) {
                   {formatTimeToHHMM(item.end_time)} (
                   {item.location || "No location"})
                 </Text>
-                {item.distance !== undefined && (
+                <Text style={[styles.statusLabel, styles[item.event_status]]}>
+                  {item.event_status.toUpperCase()}
+                </Text>
+                {typeof item.distance === "number" && !isNaN(item.distance) ? (
                   <Text style={styles.extraInfo}>
                     📍 {item.distance.toFixed(2)} miles away
                   </Text>
+                ) : (
+                  <Text style={styles.extraInfo}>📍 Calculating...</Text>
                 )}
-                {item.travelTime && (
-                  <Text style={styles.extraInfo}>🚗 {item.travelTime}</Text>
+                {typeof item.estimated_travel_time === "number" &&
+                !isNaN(item.estimated_travel_time) ? (
+                  <Text style={styles.extraInfo}>
+                    🚗 {item.estimated_travel_time} min travel time
+                  </Text>
+                ) : (
+                  <Text style={styles.extraInfo}>🚗 Calculating...</Text>
                 )}
               </View>
               <View style={styles.buttons}>
                 <TouchableOpacity onPress={() => onEdit({ ...item })}>
-                  {/* ✅ Ensure `eventToEdit` is passed correctly */}
                   <Text style={styles.editButton}>✏️</Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => handleDeleteEvent(item.id)}>
                   <Text style={styles.deleteButton}>🗑️</Text>
                 </TouchableOpacity>
+                {item.event_status === "pending" && (
+                  <TouchableOpacity
+                    onPress={() => handleCompleteEvent(item.id)}
+                  >
+                    <Text style={styles.completeButton}>✅ COMPLETE</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             </View>
           )}
@@ -105,8 +132,26 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#666",
   },
+  statusLabel: {
+    fontSize: 14,
+    fontWeight: "bold",
+    marginTop: 5,
+  },
+  today: {
+    color: "#4CAF50",
+  },
+  upcoming: {
+    color: "#2196F3",
+  },
+  pending: {
+    color: "#FF9800",
+  },
+  complete: {
+    color: "#8BC34A",
+  },
   buttons: {
     flexDirection: "row",
+    alignItems: "center",
   },
   editButton: {
     marginRight: 10,
@@ -116,6 +161,12 @@ const styles = StyleSheet.create({
   deleteButton: {
     fontSize: 18,
     color: "red",
+    marginRight: 10,
+  },
+  completeButton: {
+    fontSize: 14,
+    color: "#8BC34A",
+    fontWeight: "bold",
   },
   schedulePlaceholder: {
     textAlign: "center",

@@ -1,5 +1,5 @@
 import { useSelector } from "@legendapp/state/react";
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import {
   ActivityIndicator,
   Button,
@@ -9,16 +9,17 @@ import {
   View,
 } from "react-native";
 import { Calendar } from "react-native-calendars";
-import { events$, loading$, user$ } from "../../../state/state"; // ✅ Use global loading state
-import DayChart from "../../components/calendar/DayChart";
-import EventForm from "../../components/calendar/EventForm";
-import ScheduleSection from "../../components/calendar/ScheduleSection";
+import { loading$, user$ } from "../../../state/stateObservables";
 import {
   handleAddEvent,
   handleCloseModal,
   handleDeleteEvent,
   handleEditEvent,
-} from "../../utils/eventHandlers";
+} from "../../../utils/eventHandlers";
+import { events$ } from "../../../utils/notificationUtils";
+import DayChart from "../../components/calendar/DayChart";
+import EventForm from "../../components/calendar/EventForm";
+import ScheduleSection from "../../components/calendar/ScheduleSection";
 
 export default function CalendarScreen() {
   const user = useSelector(user$);
@@ -26,25 +27,19 @@ export default function CalendarScreen() {
   const [selectedDate, setSelectedDate] = useState(today);
   const [modalVisible, setModalVisible] = useState(false);
   const [eventToEdit, setEventToEdit] = useState(null);
-  const isLoading = useSelector(loading$); // ✅ Use global loading state
+  const isLoading = useSelector(loading$);
+  const allEvents = useSelector(events$) || []; // ✅ Use useSelector for state tracking
 
-  // ✅ Memoized Marked Dates
-  const markedDates = useMemo(() => {
-    if (isLoading) return {}; // ✅ Avoid rendering empty calendar before data loads
-    const updatedMarkedDates = {};
-    events$.get().forEach((event) => {
-      updatedMarkedDates[event.date] = {
-        marked: true,
-        dotColor: "#4CAF50",
-      };
-    });
-    return updatedMarkedDates;
-  }, [events$, isLoading]);
+  // ✅ Generate marked dates only when events change
+  const markedDates = allEvents.reduce((acc, event) => {
+    acc[event.date] = { marked: true, dotColor: "#4CAF50" };
+    return acc;
+  }, {});
 
-  const selectedEvents = useMemo(() => {
-    if (isLoading) return [];
-    return events$.get().filter((event) => event.date === selectedDate);
-  }, [events$, selectedDate, isLoading]);
+  // ✅ Filter events for the selected date
+  const selectedEvents = allEvents.filter(
+    (event) => event.date === selectedDate
+  );
 
   // ✅ Show loader while waiting for data
   if (isLoading) {

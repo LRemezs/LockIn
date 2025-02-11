@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Button,
   Modal,
   StyleSheet,
@@ -9,12 +10,8 @@ import {
   TextInput,
   View,
 } from "react-native";
-import {
-  formatTimeToHHMM,
-  handleSaveEvent,
-  handleTimeChange,
-  resetEventForm,
-} from "../../utils/eventHandlers";
+import { handleSaveEvent, resetEventForm } from "../../../utils/eventHandlers";
+import { formatTimeToHHMM, handleTimeChange } from "../../../utils/helperUtils";
 import LocationSearch from "./LocationSearch";
 
 export default function EventForm({
@@ -37,7 +34,6 @@ export default function EventForm({
 
   useEffect(() => {
     if (eventToEdit) {
-      console.log("🟢 Editing event:", eventToEdit);
       setEventTitle(eventToEdit.title || "");
       setStartTime(formatTimeToHHMM(eventToEdit.start_time || ""));
       setEndTime(formatTimeToHHMM(eventToEdit.end_time || ""));
@@ -57,6 +53,38 @@ export default function EventForm({
       );
     }
   }, [eventToEdit]);
+
+  const validateAndSave = () => {
+    if (!eventTitle.trim()) {
+      Alert.alert("Error", "Event title cannot be empty.");
+      return;
+    }
+    if (!startTime.trim() || !endTime.trim()) {
+      Alert.alert("Error", "Start time and end time must be filled.");
+      return;
+    }
+
+    handleSaveEvent(
+      eventToEdit,
+      selectedDate,
+      eventTitle,
+      startTime,
+      endTime,
+      trackLocation,
+      location,
+      userId,
+      onClose,
+      () =>
+        resetEventForm(
+          setEventTitle,
+          setStartTime,
+          setEndTime,
+          setTrackLocation,
+          setLocation
+        ),
+      setIsLoading
+    );
+  };
 
   return (
     <Modal visible={visible} transparent animationType="slide">
@@ -106,7 +134,7 @@ export default function EventForm({
               <View style={styles.locationContainer}>
                 <LocationSearch
                   onLocationSelect={setLocation}
-                  defaultValue={location.address}
+                  defaultValue={location.address || ""}
                 />
               </View>
             )}
@@ -119,28 +147,7 @@ export default function EventForm({
               <>
                 <Button
                   title={eventToEdit ? "Update Event" : "Save Event"}
-                  onPress={() =>
-                    handleSaveEvent(
-                      eventToEdit,
-                      selectedDate,
-                      eventTitle,
-                      startTime,
-                      endTime,
-                      trackLocation,
-                      location,
-                      userId,
-                      onClose,
-                      () =>
-                        resetEventForm(
-                          setEventTitle,
-                          setStartTime,
-                          setEndTime,
-                          setTrackLocation,
-                          setLocation
-                        ),
-                      setIsLoading
-                    )
-                  }
+                  onPress={validateAndSave}
                   disabled={isLoading}
                 />
                 <Button title="Close" onPress={onClose} disabled={isLoading} />

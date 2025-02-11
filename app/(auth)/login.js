@@ -1,7 +1,7 @@
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Alert, Button, StyleSheet, Text, TextInput, View } from "react-native";
-import { user$ } from "../../state/state"; // Import Legend-State global user state
+import { user$ } from "../../state/stateObservables";
 import { supabase } from "../../state/supabaseClient";
 
 export default function LoginScreen() {
