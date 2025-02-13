@@ -1,6 +1,11 @@
 import { observable } from "@legendapp/state";
-import { formatEventsData } from "../utils/helperUtils";
-import { events$, sendNotification } from "../utils/notificationUtils";
+import { addTravelTime } from "../utils/helperUtils";
+import {
+  events$,
+  getTravelInfo,
+  scheduleEventNotifications,
+  sendNotification,
+} from "../utils/notificationUtils";
 import { supabase } from "./supabaseClient";
 
 /**
@@ -8,7 +13,6 @@ import { supabase } from "./supabaseClient";
  *          user$
  *          loading$
  * => State Supporting Logic
- *          formatEventsData
  *          fetchAndProcessEvents
  */
 
@@ -44,7 +48,9 @@ export const fetchAndProcessEvents = async () => {
     const today = now.toISOString().split("T")[0]; // YYYY-MM-DD
 
     let eventsToUpdate = [];
+    let travelInfoPromises = [];
 
+    // Process each event and prepare travel info requests
     const processedEvents = data.map((event) => {
       let status = event.event_status;
       const eventStartTime = new Date(`${event.date}T${event.start_time}`);
@@ -53,7 +59,7 @@ export const fetchAndProcessEvents = async () => {
           (event.estimated_travel_time || 0)
       );
 
-      // First, process events that need to be marked as "pending"
+      // Handle missed events
       if (
         departureTime <= 0 &&
         status !== "pending" &&
@@ -66,25 +72,52 @@ export const fetchAndProcessEvents = async () => {
           event_status: status,
           notified: true,
         });
-
         sendNotification(
-          `❗ Departure time for "${event.title}" on ${event.date} at ${event.start_time} has been missed. Event is marked as Pending on calendar to be processed.`
+          `❗ Missed departure: "${event.title}". Marked as Pending.`
         );
       }
-      // Ensure today's events are marked as "today"
-      else if (event.date === today && status === "upcoming") {
+
+      // Handle today's events
+      if (event.date === today && status === "upcoming") {
         status = "today";
         eventsToUpdate.push({ id: event.id, event_status: status });
         console.log(`📅 Marking "${event.title}" as "today"`);
       }
 
+      // Prepare to fetch travel info if required
+      if (event.track_location && event.latitude && event.longitude) {
+        travelInfoPromises.push(
+          getTravelInfo(event).then((travelData) => ({
+            id: event.id,
+            travelData,
+          }))
+        );
+      }
+
       return { ...event, event_status: status };
     });
 
-    // ✅ Format and sort events
-    events$.set(formatEventsData(processedEvents));
+    // Fetch all travel info requests in parallel
+    const travelInfoResults = await Promise.all(travelInfoPromises);
 
-    // ✅ Push updates to Supabase only if necessary
+    // Attach travel info to events
+    const eventsWithTravelInfo = processedEvents.map((event) => {
+      const match = travelInfoResults.find((res) => res.id === event.id);
+      if (match && match.travelData) {
+        return {
+          ...event,
+          distance: match.travelData.distance,
+          estimated_travel_time: match.travelData.estimated_travel_time,
+          time_until_departure: match.travelData.time_until_departure,
+        };
+      }
+      return event;
+    });
+
+    // Update events observable
+    events$.set(addTravelTime(eventsWithTravelInfo));
+
+    // Push updates to Supabase only if necessary
     if (eventsToUpdate.length) {
       console.log(`🚀 Updating ${eventsToUpdate.length} events in Supabase...`);
       await Promise.all(
@@ -103,6 +136,9 @@ export const fetchAndProcessEvents = async () => {
     }
 
     console.log(`✅ Processed ${processedEvents.length} events.`);
+
+    console.log("🔄 Scheduling notifications after event fetch...");
+    scheduleEventNotifications();
   } catch (error) {
     console.error("❌ Error fetching events:", error.message);
   } finally {

@@ -1,3 +1,4 @@
+import { GOOGLE_MAPS_API_KEY } from "@env";
 import { computed, observable } from "@legendapp/state";
 import * as Notifications from "expo-notifications";
 import { supabase } from "../state/supabaseClient";
@@ -5,28 +6,32 @@ import { calculateTimeUntilLeave } from "../utils/helperUtils";
 
 /**
  * => Notification State
+ *          events$
  *          nextEvent$
- *          filteredEvents$
  *          notificationQueue$
  *          displayedEvents$
  * => Notification logic
+ *          sendNotification
  *          requestNotificationPermissions
  *          notifyPendingEvents
  * => Event scheduling and support functions
  *          notificationQueue$.onChange
- *          events$.onChange
- *          scheduleEventNotifications
  *          handleUrgencyNotification
+ *          processDepartureNotification
+ *          confirmEventPendingStatus
+ *          scheduleEventNotifications
  *          getNextNotificationTime
  *          scheduleNextCheck
  *          updateEventStatus
+ * getTravelinfo
+ * getCachedUserLocation
+ * setCachedUserLocation
  */
 
 let notificationTimeoutId = null;
 
 export const events$ = observable([]);
 export const nextEvent$ = observable(null);
-
 export const notificationQueue$ = computed(() => {
   return events$
     .get()
@@ -41,7 +46,6 @@ export const notificationQueue$ = computed(() => {
         new Date(`${b.date}T${b.start_time}`)
     );
 });
-
 export const displayedEvents$ = computed(() => {
   return events$
     .get()
@@ -104,9 +108,9 @@ notificationQueue$.onChange((newQueue) => {
 
 // Notification Scheduler
 export const scheduleEventNotifications = async () => {
-  console.log("🔄 Fetching latest events to ensure accurate scheduling...");
+  console.log("👍 Starting notification services...");
 
-  // 🔄 Always refresh the event queue from Supabase before scheduling
+  // Always refresh the event queue from Supabase before scheduling
   const { data: updatedEvents, error } = await supabase
     .from("events")
     .select("*")
@@ -117,10 +121,10 @@ export const scheduleEventNotifications = async () => {
     return;
   }
 
-  // ✅ Update local state
+  // Update local state
   events$.set(updatedEvents);
 
-  // 🔄 Fetch the latest queue after state update
+  // Fetch the latest queue after state update
   const events = notificationQueue$.get();
 
   if (!events.length) {
@@ -128,7 +132,33 @@ export const scheduleEventNotifications = async () => {
     return;
   }
 
-  const nextEvent = events[0]; // Always focus on the next event
+  // Validate and calculate departure time
+  const nextEvent = events[0];
+  if (nextEvent.estimated_travel_time == null) {
+    console.warn(
+      `⚠️ Missing travel time for event "${nextEvent.title}". Fetching now...`
+    );
+
+    const travelInfo = await getTravelInfo(nextEvent);
+    if (travelInfo) {
+      nextEvent.estimated_travel_time = travelInfo.estimated_travel_time;
+      nextEvent.distance = travelInfo.distance;
+      nextEvent.time_until_departure = travelInfo.time_until_departure;
+
+      // Update event in Supabase
+      await supabase
+        .from("events")
+        .update({
+          estimated_travel_time: travelInfo.estimated_travel_time,
+          distance: travelInfo.distance,
+        })
+        .eq("id", nextEvent.id);
+    } else {
+      console.error(`❌ Failed to fetch travel info for "${nextEvent.title}".`);
+      return;
+    }
+  }
+
   const departureTime = calculateTimeUntilLeave(
     nextEvent,
     nextEvent.estimated_travel_time
@@ -225,29 +255,39 @@ const confirmEventPendingStatus = async (event) => {
   return false;
 };
 
-// 🔔 Schedules the next notification based on urgency level
+// Schedules the next notification based on urgency level
 const scheduleNextNotification = async (event, departureTime) => {
+  // Determine the interval for the next notification
   let notificationInterval = getNextNotificationTime(departureTime);
+  const timestamp = new Date().toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 
-  console.log(
-    `🔔 Notification Sent: ⏳ Leave in ${departureTime} min for "${
-      event.title
-    }" (ETA: ${
-      event.estimated_travel_time
-    } min) at ${new Date().toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-    })}`
-  );
-
-  // 🔄 If departure time is reached, restart notification scheduling
   if (notificationInterval === null) {
+    console.log(`🔄 Notification scheduling ended for "${event.title}".`);
     scheduleEventNotifications();
     return;
   }
 
+  // Check if departure time is within the next 60 minutes
+  if (departureTime <= 60) {
+    sendNotification(
+      `⏳ Time to leave in ${departureTime} min for "${event.title}"!`
+    );
+    console.log(
+      `🔄 [${timestamp}] Next notification Scheduled: Event "${event.title}" - Departure in ${departureTime} min (ETA: ${event.estimated_travel_time} min). Next check in ${notificationInterval} min.`
+    );
+  } else {
+    console.log(
+      `🔄 [${timestamp}] Notification Scheduled: Event "${event.title}" - Departure in ${departureTime} min (ETA: ${event.estimated_travel_time} min). Next check in ${notificationInterval} min.`
+    );
+  }
+
+  // Schedule the next notification check
   scheduleNextCheck(notificationInterval);
 };
+
 // Improved function to calculate next notification timing
 const getNextNotificationTime = (departureTime) => {
   if (departureTime > 60) return departureTime - 60; // Notify 60 min before
@@ -257,14 +297,14 @@ const getNextNotificationTime = (departureTime) => {
 };
 
 // Schedule Next Notification (Prevents Overlaps)
+// Schedule Next Notification (Prevents Overlaps)
 const scheduleNextCheck = (minutes) => {
   if (notificationTimeoutId) clearTimeout(notificationTimeoutId);
 
-  console.log(`🔄 Next notification scheduled in ${minutes} min.`);
-  notificationTimeoutId = setTimeout(
-    scheduleEventNotifications,
-    minutes * 60 * 1000
-  );
+  notificationTimeoutId = setTimeout(() => {
+    console.log(`🔄 Restarting notification scheduler in ${minutes} min...`);
+    scheduleEventNotifications();
+  }, minutes * 60 * 1000);
 };
 
 // Update event status in Supabase
@@ -295,4 +335,92 @@ export const updateEventStatus = async (eventId, status) => {
     console.error("❌ Error updating event status:", error.message);
     return false;
   }
+};
+
+// Fetch travel info from Google Maps API
+export const getTravelInfo = async (event) => {
+  try {
+    if (!event?.latitude || !event?.longitude) {
+      console.error(
+        `❌ Error: Missing coordinates for event "${
+          event?.title || "Unknown"
+        }".`
+      );
+      return null;
+    }
+
+    let userLocation = getCachedUserLocation();
+    if (!userLocation) {
+      console.warn("⚠️ Cannot fetch travel info: No location available.");
+      return null;
+    }
+
+    const apiUrl = `https://maps.googleapis.com/maps/api/directions/json?origin=${userLocation}&destination=${event.latitude},${event.longitude}&mode=driving&departure_time=now&traffic_model=best_guess&key=${GOOGLE_MAPS_API_KEY}`;
+
+    console.log(
+      `🚀 Fetching travel info for event "${event.title}" from Google Maps...`
+    );
+    const response = await fetch(apiUrl);
+    const data = await response.json();
+
+    if (data.status !== "OK") {
+      console.error(
+        `❌ Google API Error for "${event.title}":`,
+        data.error_message || data.status
+      );
+      return null;
+    }
+
+    const route = data.routes[0]?.legs[0];
+    if (!route) {
+      console.error(
+        `❌ Error: No valid route found for event "${event.title}".`
+      );
+      return null;
+    }
+
+    // Convert meters to miles (1 mile = 1609.34 meters)
+    const distanceMiles = route?.distance?.value
+      ? route.distance.value / 1609.34
+      : 0;
+    const estimatedTravelTime = route?.duration?.value
+      ? Math.round(route.duration.value / 60)
+      : 0;
+
+    // Calculate time left until departure
+    const eventStartTime = new Date(`${event.date}T${event.start_time}`);
+    const currentTime = new Date();
+    const timeUntilDeparture =
+      Math.round((eventStartTime - currentTime) / (1000 * 60)) -
+      estimatedTravelTime;
+
+    console.log(
+      `📡 Travel info received for "${event.title}": ` +
+        `Distance - ${distanceMiles.toFixed(1)} miles, ` +
+        `ETA - ${estimatedTravelTime} min, ` +
+        `Time until departure - ${timeUntilDeparture} min`
+    );
+
+    return {
+      distance: distanceMiles,
+      estimated_travel_time: estimatedTravelTime,
+      time_until_departure: timeUntilDeparture,
+    };
+  } catch (error) {
+    console.error(
+      `❌ Error fetching travel info for "${event?.title || "Unknown"}":`,
+      error
+    );
+    return null;
+  }
+};
+
+// Get cached location
+let cachedUserLocation = null;
+
+export const getCachedUserLocation = () => cachedUserLocation;
+
+//  Set cached location
+export const setCachedUserLocation = (location) => {
+  cachedUserLocation = location;
 };

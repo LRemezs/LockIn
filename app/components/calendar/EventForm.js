@@ -11,7 +11,7 @@ import {
   View,
 } from "react-native";
 import { handleSaveEvent, resetEventForm } from "../../../utils/eventHandlers";
-import { formatTimeToHHMM, handleTimeChange } from "../../../utils/helperUtils";
+import { formatTimeInput, formatTimeToHHMM } from "../../../utils/helperUtils";
 import LocationSearch from "./LocationSearch";
 
 export default function EventForm({
@@ -64,7 +64,8 @@ export default function EventForm({
       return;
     }
 
-    handleSaveEvent(
+    // ✅ Create an object for better debugging
+    const eventData = {
       eventToEdit,
       selectedDate,
       eventTitle,
@@ -73,8 +74,15 @@ export default function EventForm({
       trackLocation,
       location,
       userId,
+    };
+
+    console.log("📌 Event Data Input:", eventData); // ✅ Debugging Log
+
+    // ✅ Call handleSaveEvent with an object
+    handleSaveEvent({
+      ...eventData,
       onClose,
-      () =>
+      resetForm: () =>
         resetEventForm(
           setEventTitle,
           setStartTime,
@@ -82,8 +90,8 @@ export default function EventForm({
           setTrackLocation,
           setLocation
         ),
-      setIsLoading
-    );
+      setLoading: setIsLoading,
+    });
   };
 
   return (
@@ -99,7 +107,7 @@ export default function EventForm({
               style={styles.input}
               placeholder="Event Title"
               value={eventTitle}
-              onChangeText={setEventTitle}
+              onChangeText={(text) => setEventTitle(text)}
               editable={!isLoading}
             />
 
@@ -108,7 +116,10 @@ export default function EventForm({
               placeholder="Start Time (HH:MM)"
               value={startTime}
               keyboardType="numeric"
-              onChangeText={(text) => handleTimeChange(text, setStartTime)}
+              onChangeText={(text) => {
+                const formattedTime = formatTimeInput(text);
+                setStartTime(formattedTime);
+              }}
               editable={!isLoading}
             />
 
@@ -117,7 +128,10 @@ export default function EventForm({
               placeholder="End Time (HH:MM)"
               value={endTime}
               keyboardType="numeric"
-              onChangeText={(text) => handleTimeChange(text, setEndTime)}
+              onChangeText={(text) => {
+                const formattedTime = formatTimeInput(text);
+                setEndTime(formattedTime);
+              }}
               editable={!isLoading}
             />
 
@@ -147,10 +161,30 @@ export default function EventForm({
               <>
                 <Button
                   title={eventToEdit ? "Update Event" : "Save Event"}
-                  onPress={validateAndSave}
+                  onPress={() => {
+                    console.log(
+                      "✅ Save button pressed. Calling validateAndSave()..."
+                    );
+                    validateAndSave();
+                  }}
                   disabled={isLoading}
                 />
-                <Button title="Close" onPress={onClose} disabled={isLoading} />
+                {/* ✅ Restore the missing Close button */}
+                <Button
+                  title="Close"
+                  onPress={() => {
+                    console.log("❌ Close button pressed. Closing modal...");
+                    resetEventForm(
+                      setEventTitle,
+                      setStartTime,
+                      setEndTime,
+                      setTrackLocation,
+                      setLocation
+                    );
+                    onClose();
+                  }}
+                  disabled={isLoading}
+                />
               </>
             )}
           </View>

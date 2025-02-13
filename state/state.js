@@ -1,4 +1,5 @@
 import {
+  getUserLocation,
   startLocationTracking,
   updateTravelInfoBasedOnTime,
 } from "../utils/calendarUtils";
@@ -13,29 +14,45 @@ import { supabase } from "./supabaseClient";
 let initialized = false;
 let travelUpdateInterval = null;
 
-// Handle Auth Changes
+// Handle Auth State Changes
 supabase.auth.onAuthStateChange(async (event, session) => {
-  if (session?.user) {
-    if (!initialized) {
-      initialized = true;
-      console.log("🟢 User logged in, updating state...");
+  if (session?.user && !initialized) {
+    initialized = true;
+    console.log("🟢 User logged in, updating state...");
 
-      user$.set({
-        id: session.user.id,
-        name: session.user.user_metadata?.name || "Unknown",
-        email: session.user.email,
-        loggedIn: true,
-      });
+    // ✅ Set user info
+    user$.set({
+      id: session.user.id,
+      name: session.user.user_metadata?.name || "Unknown",
+      email: session.user.email,
+      loggedIn: true,
+    });
 
-      console.log("📍 Starting location tracking...");
-      await startLocationTracking(); // Wait for location tracking to finish first
+    // ✅ Fetch initial location
+    console.log("📍 Fetching initial location...");
+    let initialLocation = await getUserLocation();
+    if (!initialLocation) {
+      console.warn("⚠️ Failed to get location. Retrying...");
+      initialLocation = await getUserLocation();
+    }
 
-      console.log("📍 Location received. Now fetching events...");
+    // ✅ Proceed only if location is available
+    if (initialLocation) {
+      console.log(`📍 Location ready: ${initialLocation}`);
+      await startLocationTracking(); // Start tracking
+
+      // ✅ Fetch events and start travel/notifications
+      console.log("🚀 Fetching events after location readiness...");
       await fetchAndProcessEvents();
 
       startTravelUpdateChecker();
-      scheduleEventNotifications(); // Only starts AFTER location tracking & event fetch
+    } else {
+      console.error("❌ Failed to retrieve location. Can't proceed.");
     }
+  } else if (!session?.user && initialized) {
+    console.log("🚪 User logged out, resetting state...");
+    initialized = false;
+    user$.set({ id: "", name: "", email: "", loggedIn: false });
   }
 });
 

@@ -30,18 +30,13 @@ export default function CalendarScreen() {
   const isLoading = useSelector(loading$);
   const allEvents = useSelector(events$) || []; // ✅ Use useSelector for state tracking
 
-  // ✅ Generate marked dates only when events change
+  // Generate marked dates only when events change
   const markedDates = allEvents.reduce((acc, event) => {
     acc[event.date] = { marked: true, dotColor: "#4CAF50" };
     return acc;
   }, {});
 
-  // ✅ Filter events for the selected date
-  const selectedEvents = allEvents.filter(
-    (event) => event.date === selectedDate
-  );
-
-  // ✅ Show loader while waiting for data
+  // Show loader while waiting for data
   if (isLoading) {
     return (
       <View style={styles.loaderContainer}>

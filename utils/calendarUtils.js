@@ -1,12 +1,15 @@
-import { GOOGLE_MAPS_API_KEY } from "@env";
 import * as Location from "expo-location";
 import { debounce } from "lodash";
-import { events$ } from "../utils/notificationUtils";
+import {
+  events$,
+  getCachedUserLocation,
+  setCachedUserLocation,
+} from "../utils/notificationUtils";
 
 // Global tracking state for location tracking logic
 let trackingSubscription = null;
 let lastUpdatedLocation = null;
-let cachedUserLocation = null;
+
 let isTravelUpdateInProgress = false;
 let lastTravelInfoHash = "";
 let isTrackingStarted = false;
@@ -15,11 +18,11 @@ let isLocationRequestInProgress = false;
 /**
  * Location tracking logic for user's events
  * => Location Functions:
- *          getCachedUserLocation
- *          setCachedUserLocation
+ *          -- getCachedUserLocation
+ *          -- setCachedUserLocation
  *          getUserLocation
  * => Google Maps API Fetch
- *          getTravelInfo
+ *         -- getTravelInfo
  *          updateTravelInfoBasedOnTime
  * => Tracking Functions
  *          startLocationTracking
@@ -27,14 +30,6 @@ let isLocationRequestInProgress = false;
  * => Utility Functions
  *          debouncedUpdateTravelInfo
  */
-
-// Get cached location
-export const getCachedUserLocation = () => cachedUserLocation;
-
-//  Set cached location
-export const setCachedUserLocation = (location) => {
-  cachedUserLocation = location;
-};
 
 // Get the user's current location
 export const getUserLocation = async () => {
@@ -46,9 +41,7 @@ export const getUserLocation = async () => {
     console.warn("⚠️ Location request already in progress. Skipping.");
     return null;
   }
-
   isLocationRequestInProgress = true;
-  console.log("📍 Requesting location...");
 
   const { status } = await Location.requestForegroundPermissionsAsync();
   if (status !== "granted") {
@@ -69,83 +62,6 @@ export const getUserLocation = async () => {
   setCachedUserLocation(newLocation);
   console.log(`📍 User location received: "${newLocation}"`);
   return newLocation;
-};
-// Fetch travel info from Google Maps API
-export const getTravelInfo = async (event) => {
-  try {
-    if (!event?.latitude || !event?.longitude) {
-      console.error(
-        `❌ Error: Missing coordinates for event "${
-          event?.title || "Unknown"
-        }".`
-      );
-      return null;
-    }
-
-    let userLocation = getCachedUserLocation();
-    if (!userLocation) {
-      console.warn("⚠️ Cannot fetch travel info: No location available.");
-      return null;
-    }
-
-    const apiUrl = `https://maps.googleapis.com/maps/api/directions/json?origin=${userLocation}&destination=${event.latitude},${event.longitude}&mode=driving&departure_time=now&traffic_model=best_guess&key=${GOOGLE_MAPS_API_KEY}`;
-
-    console.log(
-      `🚀 Fetching travel info for event "${event.title}" from Google Maps...`
-    );
-    const response = await fetch(apiUrl);
-    const data = await response.json();
-
-    if (data.status !== "OK") {
-      console.error(
-        `❌ Google API Error for "${event.title}":`,
-        data.error_message || data.status
-      );
-      return null;
-    }
-
-    const route = data.routes[0]?.legs[0];
-    if (!route) {
-      console.error(
-        `❌ Error: No valid route found for event "${event.title}".`
-      );
-      return null;
-    }
-
-    // Convert meters to miles (1 mile = 1609.34 meters)
-    const distanceMiles = route?.distance?.value
-      ? route.distance.value / 1609.34
-      : 0;
-    const estimatedTravelTime = route?.duration?.value
-      ? Math.round(route.duration.value / 60)
-      : 0;
-
-    // Calculate time left until departure
-    const eventStartTime = new Date(`${event.date}T${event.start_time}`);
-    const currentTime = new Date();
-    const timeUntilDeparture =
-      Math.round((eventStartTime - currentTime) / (1000 * 60)) -
-      estimatedTravelTime;
-
-    console.log(
-      `📡 Travel info received for "${event.title}": ` +
-        `Distance - ${distanceMiles.toFixed(1)} miles, ` +
-        `ETA - ${estimatedTravelTime} min, ` +
-        `Time until departure - ${timeUntilDeparture} min`
-    );
-
-    return {
-      distance: distanceMiles,
-      estimated_travel_time: estimatedTravelTime,
-      time_until_departure: timeUntilDeparture,
-    };
-  } catch (error) {
-    console.error(
-      `❌ Error fetching travel info for "${event?.title || "Unknown"}":`,
-      error
-    );
-    return null;
-  }
 };
 
 // Check if travel info needs updating and update it.

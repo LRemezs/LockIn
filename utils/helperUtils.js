@@ -1,5 +1,5 @@
 /**
- * => Utils with no imports to avoid Require Cycle warnings
+ * => Utility functions for event handling
  *          formatMinutesToTravelTime
  *          sortEventsByStartTime
  *          getUserEvents
@@ -8,11 +8,12 @@
  *          isValidTimeFormat
  *          formatTimeInput
  *          handleTimeChange
+ *          addTravelTime
  */
 
-// Convert minutes to a human-readable travel time (e.g., "1 hr 30 min")
+// Convert minutes to human-readable travel time (e.g., "1 hr 30 min")
 export const formatMinutesToTravelTime = (minutes) => {
-  if (!Number.isFinite(minutes) || minutes < 0) return "N/A"; // ✅ Handles invalid input
+  if (!Number.isFinite(minutes) || minutes < 0) return "N/A";
 
   const hours = Math.floor(minutes / 60);
   const remainingMinutes = minutes % 60;
@@ -22,14 +23,13 @@ export const formatMinutesToTravelTime = (minutes) => {
     : `${remainingMinutes} min`;
 };
 
-// Sort an array of events by start time.
-export const sortEventsByStartTime = (events) => {
-  return [...events].sort((a, b) => {
-    const timeA = new Date(`${a.date}T${a.start_time}`).getTime();
-    const timeB = new Date(`${b.date}T${b.start_time}`).getTime();
-    return timeA - timeB;
-  });
-};
+// Sort events by start time
+export const sortEventsByStartTime = (events) =>
+  [...events].sort(
+    (a, b) =>
+      new Date(`${a.date}T${a.start_time}`).getTime() -
+      new Date(`${b.date}T${b.start_time}`).getTime()
+  );
 
 // Fetch user events from Supabase.
 export const getUserEvents = async (supabase, userId) => {
@@ -48,16 +48,16 @@ export const getUserEvents = async (supabase, userId) => {
   }
 };
 
-// Calculate time until a user needs to leave for an event.
-export const calculateTimeUntilLeave = (event, travelTimeMinutes) => {
+// Calculate time until user needs to leave
+export const calculateTimeUntilLeave = (event, estimated_travel_time) => {
   if (
     !event ||
     !event.date ||
     !event.start_time ||
-    !Number.isFinite(travelTimeMinutes)
+    !Number.isFinite(estimated_travel_time)
   ) {
     console.error("❌ ERROR: Invalid event data or travel time", {
-      travelTimeMinutes,
+      estimated_travel_time,
       event,
     });
     return "N/A";
@@ -65,13 +65,15 @@ export const calculateTimeUntilLeave = (event, travelTimeMinutes) => {
 
   const now = new Date();
   const eventTime = new Date(`${event.date}T${event.start_time}`);
-  const leaveTime = new Date(eventTime.getTime() - travelTimeMinutes * 60000);
-  let timeUntilLeave = Math.round((leaveTime - now) / 60000);
+  const leaveTime = new Date(
+    eventTime.getTime() - estimated_travel_time * 60000
+  );
+  let timeUntilLeave = Math.max(Math.round((leaveTime - now) / 60000), 0);
 
-  return Math.max(timeUntilLeave, 0); // ✅ Prevents negative values
+  return timeUntilLeave;
 };
 
-// Format a time string to "HH:MM"
+// Format time to HH:MM
 export const formatTimeToHHMM = (timeString) => {
   if (
     !timeString ||
@@ -87,11 +89,10 @@ export const formatTimeToHHMM = (timeString) => {
 };
 
 // Validate time format (HH:MM)
-export const isValidTimeFormat = (time) => {
-  return /^([01]\d|2[0-3]):([0-5]\d)$/.test(time);
-};
+export const isValidTimeFormat = (time) =>
+  /^([01]\d|2[0-3]):([0-5]\d)$/.test(time);
 
-// Format time input dynamically as the user types.
+// Improved: Format time input dynamically as user types
 export const formatTimeInput = (value) => {
   const cleanedValue = value.replace(/\D/g, ""); // Remove non-numeric characters
   let formatted = "";
@@ -103,20 +104,41 @@ export const formatTimeInput = (value) => {
     formatted = cleanedValue;
   }
 
-  return formatted.slice(0, 5).padEnd(5, "0"); // ✅ Ensure HH:MM format is correct
+  return formatted.slice(0, 5); // Ensure max length of 5 characters
 };
 
-// Handle formatted time input change.
+// Handle time input and enforce correct HH:MM format
 export const handleTimeChange = (value, setTime) => {
   if (typeof setTime !== "function") {
     console.error("❌ Error: setTime function is undefined!");
     return;
   }
-  setTime(formatTimeInput(value));
+
+  // Remove non-numeric characters
+  const cleanedValue = value.replace(/\D/g, "");
+
+  let formatted = "";
+  if (cleanedValue.length >= 2) {
+    formatted += cleanedValue.slice(0, 2);
+    if (cleanedValue.length > 2) {
+      formatted += ":" + cleanedValue.slice(2, 4);
+    }
+  } else {
+    formatted = cleanedValue;
+  }
+
+  const finalValue = formatted.slice(0, 5);
+
+  // Enforce `HH:MM` format and validate input
+  if (isValidTimeFormat(finalValue)) {
+    setTime(finalValue);
+  } else {
+    setTime(finalValue.replace(/[^0-9:]/g, "")); // Remove invalid characters
+  }
 };
 
-// Add distance and formatted travel times to events
-export const formatEventsData = (events) =>
+// Format event data (adds calculated travel time)
+export const addTravelTime = (events) =>
   events.map((event) => ({
     ...event,
     distance: event.distance || 0,
