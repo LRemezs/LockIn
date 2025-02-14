@@ -50,19 +50,6 @@ export const getUserEvents = async (supabase, userId) => {
 
 // Calculate time until user needs to leave
 export const calculateTimeUntilLeave = (event, estimated_travel_time) => {
-  if (
-    !event ||
-    !event.date ||
-    !event.start_time ||
-    !Number.isFinite(estimated_travel_time)
-  ) {
-    console.error("❌ ERROR: Invalid event data or travel time", {
-      estimated_travel_time,
-      event,
-    });
-    return "N/A";
-  }
-
   const now = new Date();
   const eventTime = new Date(`${event.date}T${event.start_time}`);
   const leaveTime = new Date(
