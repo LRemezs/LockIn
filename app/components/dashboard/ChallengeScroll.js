@@ -1,57 +1,74 @@
-import React from "react";
-import { FlatList, StyleSheet, View } from "react-native";
-import BrowseChallenges from "./BrowseChallenges";
+import { useObservable } from "@legendapp/state/react";
+import React, { useEffect } from "react";
+import {
+  ActivityIndicator,
+  FlatList,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import { challengesStore$ } from "../../../state/stateObservables";
+import { fetchChallenges } from "../../../utils/challengesUtils";
 import ChallengeButton from "./ChallengeButton";
 
-const challenges = [
-  { id: "sleep", name: "Sleep", isDefault: true },
-  { id: "basic_todo", name: "Basic To-Do", isDefault: true },
-  { id: "custom_1", name: "Workout", isDefault: false, userAccepted: true },
-  { id: "custom_2", name: "Meditation", isDefault: false, userAccepted: true },
-  { id: "custom_3", name: "Reading", isDefault: false, userAccepted: true },
-  { id: "custom_4", name: "Hydration", isDefault: false, userAccepted: true },
-  { id: "custom_5", name: "Journaling", isDefault: false, userAccepted: true },
-  { id: "custom_6", name: "Stretching", isDefault: false, userAccepted: true },
-  { id: "custom_7", name: "Gratitude", isDefault: false, userAccepted: true },
-  {
-    id: "custom_8",
-    name: "Healthy Eating",
-    isDefault: false,
-    userAccepted: true,
-  },
-  {
-    id: "custom_9",
-    name: "Digital Detox",
-    isDefault: false,
-    userAccepted: true,
-  },
-];
-
 export default function ChallengeScroll() {
-  const sortedChallenges = [
-    ...challenges.filter((c) => c.isDefault),
-    ...challenges.filter((c) => !c.isDefault && c.userAccepted),
-  ];
+  const challengesState = useObservable(challengesStore$);
+  useEffect(() => {
+    async function loadChallenges() {
+      challengesStore$.loading.set(true);
+      try {
+        const data = await fetchChallenges();
+        challengesStore$.challenges.set(data);
+      } catch (err) {
+        challengesStore$.error.set(err.message);
+      } finally {
+        challengesStore$.loading.set(false);
+      }
+    }
+    loadChallenges();
+  }, []);
 
-  const challengesWithBrowse = [
-    ...sortedChallenges,
-    { id: "browse", name: "Browse Challenges" },
-  ];
+  if (challengesState.loading.get()) {
+    return (
+      <View style={styles.loading}>
+        <ActivityIndicator size="small" color="#000" />
+      </View>
+    );
+  }
+
+  if (challengesState.error.get()) {
+    return (
+      <View style={styles.loading}>
+        <Text>Error loading challenges: {challengesState.error.get()}</Text>
+      </View>
+    );
+  }
+
+  // Access the underlying challenges array using .get()
+  const defaultChallenges = challengesState.challenges
+    .get()
+    .filter((c) => c.is_default);
+  const customChallenges = challengesState.challenges
+    .get()
+    .filter((c) => !c.is_default && c.userAccepted);
+  const sortedChallenges = [...defaultChallenges, ...customChallenges];
 
   return (
     <View style={styles.wrapper}>
       <View style={styles.challengeScrollContainer}>
         <FlatList
           horizontal
-          keyExtractor={(item) => item.id}
-          data={challengesWithBrowse}
-          renderItem={({ item }) =>
-            item.id === "browse" ? (
-              <BrowseChallenges />
-            ) : (
-              <ChallengeButton id={item.id} name={item.name} />
-            )
-          }
+          keyExtractor={(item) => item.challenge_id}
+          data={sortedChallenges}
+          renderItem={({ item }) => (
+            <ChallengeButton
+              id={item.challenge_id}
+              name={item.challenge_name}
+              onPress={() => {
+                console.log(`✒️ Challenge ${item.challenge_name} selected...`);
+              }}
+            />
+          )}
           showsHorizontalScrollIndicator={true}
           persistentScrollbar={true}
         />
@@ -69,7 +86,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   challengeScrollContainer: {
-    height: 90, // ✅ Reduced height
+    height: 90,
     width: "95%",
     flexDirection: "column",
     alignItems: "center",
@@ -84,5 +101,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowOffset: { width: 0, height: 3 },
     elevation: 4,
+  },
+  loading: {
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 10,
   },
 });

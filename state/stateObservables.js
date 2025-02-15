@@ -12,6 +12,7 @@ import { supabase } from "./supabaseClient";
  * => State Management
  *          user$
  *          loading$
+ *          challengesStore$
  * => State Supporting Logic
  *          fetchAndProcessEvents
  */
@@ -24,6 +25,12 @@ export const user$ = observable({
   loggedIn: false,
 });
 export const loading$ = observable(true);
+
+export const challengesStore$ = observable({
+  challenges: [],
+  loading: false,
+  error: null,
+});
 
 // Format event data consistently
 export const fetchAndProcessEvents = async () => {

@@ -23,14 +23,8 @@ export default function Dashboard() {
       <Text style={styles.dateText}>
         Selected date: {selectedDate.toDateString()}
       </Text>
-
-      {/* Countdown Section */}
       <CountdownTimer />
-
-      {/* Main View (Handles Display Logic & Layout) */}
       <MainView isToday={isToday} />
-
-      {/* Challenge Scroll */}
       <ChallengeScroll />
     </View>
   );
@@ -41,7 +35,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 20,
     paddingTop: 10,
-    paddingBottom: 100, // ✅ Prevents overlap with ChallengeScroll
+    paddingBottom: 100,
   },
   header: {
     fontSize: 24,
