@@ -8,14 +8,14 @@ export default function LocationSearch({ onLocationSelect, defaultValue }) {
 
   useEffect(() => {
     if (locationRef.current && defaultValue) {
-      locationRef.current.setAddressText(defaultValue); // ✅ Set default address
+      locationRef.current.setAddressText(defaultValue); // Set the default address when available
     }
-  }, [defaultValue]); // ✅ Runs when defaultValue updates
+  }, [defaultValue]);
 
   return (
     <View style={styles.container}>
       <GooglePlacesAutocomplete
-        ref={locationRef} // ✅ Attach ref to manually update input field
+        ref={locationRef}
         placeholder="Search for location"
         fetchDetails
         onPress={(data, details = null) => {

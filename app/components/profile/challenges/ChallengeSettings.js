@@ -1,14 +1,20 @@
-import React from "react";
-import { Alert, Button, StyleSheet, Text, View } from "react-native";
+import React, { useEffect } from "react";
+import { Alert, StyleSheet, Text, View } from "react-native";
 import useChallengeSettings from "../../../hooks/useChallengeSettings";
+import { theme } from "../../../styles/theme";
+import GreenButton from "../../assetComponents/GreenButton";
 import ChallengeSpecificSettings from "./ChallengeSpecificSettings";
 import FixedPatternSettings from "./FixedPatternSettings";
 import LocationPicker from "./LocationPicker";
 import PatternSelector from "./PatternSelector";
 import RollingPatternSettings from "./RollingPatternSettings";
 
-export default function ChallengeSettings({ challenge }) {
-  // Use our custom hook to manage all settings state and actions.
+export default function ChallengeSettings({
+  challenge,
+  onPatternChange,
+  hideSaveButton = false,
+}) {
+  // Use our custom hook for state and business logic
   const {
     patternType,
     setPatternType,
@@ -24,9 +30,23 @@ export default function ChallengeSettings({ challenge }) {
     setSpecificSettings,
     availableOptions,
     saveSettings,
+    buildSettingsObject,
   } = useChallengeSettings(challenge);
 
-  // Handler for the Save button. Calls the hook's saveSettings function.
+  // Whenever settings change, lift the built object to the parent if needed
+  useEffect(() => {
+    if (onPatternChange) {
+      onPatternChange(buildSettingsObject());
+    }
+  }, [
+    patternType,
+    fixedDays,
+    rollingSegments,
+    useLocation,
+    favoriteLocations,
+    specificSettings,
+  ]);
+
   const handleSave = async () => {
     try {
       await saveSettings();
@@ -39,8 +59,8 @@ export default function ChallengeSettings({ challenge }) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>Settings for {challenge.challenge_name}</Text>
-      {/* PatternSelector lets user choose fixed vs. rolling */}
+      <Text style={styles.header}>Challenge Settings:</Text>
+      {/* Pattern selector */}
       <PatternSelector
         patternType={patternType}
         setPatternType={setPatternType}
@@ -58,7 +78,7 @@ export default function ChallengeSettings({ challenge }) {
           onChange={setRollingSegments}
         />
       )}
-      {/* Generic settings section: location tracking and favorite locations */}
+      {/* Generic settings: location and favorite locations */}
       <View style={styles.genericSection}>
         <LocationPicker
           useLocation={useLocation}
@@ -67,7 +87,7 @@ export default function ChallengeSettings({ challenge }) {
           onUpdateFavorites={setFavoriteLocations}
         />
       </View>
-      {/* Challenge-specific settings section (fetched dynamically) */}
+      {/* Challenge-specific settings */}
       {availableOptions && (
         <View style={styles.specificSection}>
           <Text style={styles.subHeader}>Challenge-Specific Settings</Text>
@@ -78,41 +98,49 @@ export default function ChallengeSettings({ challenge }) {
           />
         </View>
       )}
-      <View style={styles.saveButtonContainer}>
-        <Button title="Save Settings" onPress={handleSave} />
-      </View>
+      {!hideSaveButton && (
+        <View style={styles.saveButtonContainer}>
+          <GreenButton title="Save Settings" onPress={handleSave} />
+        </View>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    marginVertical: 8,
-    padding: 12,
-    backgroundColor: "#fff",
-    borderRadius: 8,
-    elevation: 2,
+    marginVertical: theme.spacing.small,
+    padding: theme.spacing.small,
+    backgroundColor: theme.colors.cardBackground,
+    borderRadius: theme.borderRadius.medium,
+    shadowColor: theme.colors.shadowColor,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 5,
   },
   header: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 12,
+    fontSize: theme.typography.headerFontSize,
+    fontWeight: theme.typography.headerFontWeight,
+    color: theme.colors.textPrimary,
   },
   genericSection: {
-    marginVertical: 10,
+    marginVertical: theme.spacing.small,
   },
   subHeader: {
     fontSize: 16,
     fontWeight: "600",
+    color: theme.colors.textPrimary,
     marginBottom: 5,
   },
   saveButtonContainer: {
-    marginVertical: 10,
+    marginVertical: theme.spacing.medium,
+    alignItems: "center",
   },
   specificSection: {
-    marginVertical: 10,
-    padding: 10,
-    backgroundColor: "#e8f0ff",
-    borderRadius: 8,
+    marginVertical: theme.spacing.medium,
+    padding: theme.spacing.small,
+    backgroundColor: theme.colors.sectionBackground,
+    borderRadius: theme.borderRadius.medium,
   },
 });

@@ -1,5 +1,5 @@
 import { useObservable } from "@legendapp/state/react";
-import React, { useEffect } from "react";
+import React from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -7,28 +7,15 @@ import {
   Text,
   View,
 } from "react-native";
-import { challengesStore$ } from "../../../state/stateObservables";
-import { fetchChallenges } from "../../../utils/challengesUtils";
+import { activeChallenges$ } from "../../../utils/challengesUtils";
 import ChallengeButton from "./ChallengeButton";
 
 export default function ChallengeScroll() {
-  const challengesState = useObservable(challengesStore$);
-  useEffect(() => {
-    async function loadChallenges() {
-      challengesStore$.loading.set(true);
-      try {
-        const data = await fetchChallenges();
-        challengesStore$.challenges.set(data);
-      } catch (err) {
-        challengesStore$.error.set(err.message);
-      } finally {
-        challengesStore$.loading.set(false);
-      }
-    }
-    loadChallenges();
-  }, []);
+  // Subscribe directly to the computed observable for active challenges
+  const activeChallenges = [...useObservable(activeChallenges$).get()];
 
-  if (challengesState.loading.get()) {
+  // Optionally, you can add a conditional check if data isn't ready yet
+  if (!activeChallenges) {
     return (
       <View style={styles.loading}>
         <ActivityIndicator size="small" color="#000" />
@@ -36,22 +23,14 @@ export default function ChallengeScroll() {
     );
   }
 
-  if (challengesState.error.get()) {
+  // If there are no active challenges, you might also display a placeholder
+  if (activeChallenges.length === 0) {
     return (
       <View style={styles.loading}>
-        <Text>Error loading challenges: {challengesState.error.get()}</Text>
+        <Text>No active challenges found.</Text>
       </View>
     );
   }
-
-  // Access the underlying challenges array using .get()
-  const defaultChallenges = challengesState.challenges
-    .get()
-    .filter((c) => c.is_default);
-  const customChallenges = challengesState.challenges
-    .get()
-    .filter((c) => !c.is_default && c.userAccepted);
-  const sortedChallenges = [...defaultChallenges, ...customChallenges];
 
   return (
     <View style={styles.wrapper}>
@@ -59,7 +38,7 @@ export default function ChallengeScroll() {
         <FlatList
           horizontal
           keyExtractor={(item) => item.challenge_id}
-          data={sortedChallenges}
+          data={activeChallenges}
           renderItem={({ item }) => (
             <ChallengeButton
               id={item.challenge_id}

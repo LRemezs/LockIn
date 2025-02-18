@@ -33,6 +33,7 @@ let isLocationRequestInProgress = false;
 
 // Get the user's current location
 export const getUserLocation = async () => {
+  console.log("📍 getUserLocation(): Fetching location...");
   if (getCachedUserLocation()) {
     return getCachedUserLocation();
   }
@@ -54,13 +55,13 @@ export const getUserLocation = async () => {
     accuracy: Location.Accuracy.High,
   });
 
-  isLocationRequestInProgress = false; // ✅ Reset flag
+  isLocationRequestInProgress = false;
 
   if (!location?.coords) return null;
 
   const newLocation = `${location.coords.latitude},${location.coords.longitude}`;
   setCachedUserLocation(newLocation);
-  console.log(`📍 User location received: "${newLocation}"`);
+  console.log(`📍 getUserLocation(): User location received: "${newLocation}"`);
   return newLocation;
 };
 
@@ -72,7 +73,7 @@ export const updateTravelInfoBasedOnTime = async () => {
   }
 
   isTravelUpdateInProgress = true;
-  console.log(`🔄 Checking travel info... (Triggered by: ${triggeredBy})`);
+  console.log(`🚀 Checking travel info...`);
 
   let currentLocation = getCachedUserLocation();
   if (!currentLocation) {
@@ -127,7 +128,7 @@ export const startLocationTracking = async () => {
     return;
   }
 
-  console.log("🚀 Starting location tracking...");
+  console.log("👍 startLocationTracking(): Starting location tracking...");
   isTrackingStarted = true;
 
   let lastUpdateTimestamp = Date.now();
@@ -166,4 +167,4 @@ export const stopLocationTracking = () => {
 };
 
 // Debounced function to update travel info when user movement stops.
-const debouncedUpdateTravelInfo = debounce(updateTravelInfoBasedOnTime, 10000); // ✅ Reduce API spam
+const debouncedUpdateTravelInfo = debounce(updateTravelInfoBasedOnTime, 10000);

@@ -1,22 +1,28 @@
-// views/challenges/index.js (BrowseScreen)
-import { useObservable } from "@legendapp/state/react";
+import { useSelector } from "@legendapp/state/react";
 import React from "react";
-import { FlatList, StyleSheet, Text, View } from "react-native";
-import { challengesStore$ } from "../../../../state/stateObservables";
+import { FlatList, StyleSheet, View } from "react-native";
+import { activeChallenges$ } from "../../../../utils/challengesUtils";
 import ChallengeToggler from "../../../components/profile/challenges/ChallengeToggler";
+import { theme } from "../../../styles/theme";
 
-export default function ChallengeScreen() {
-  const challengesState = useObservable(challengesStore$);
-  // Retrieve the list of challenges (using .get() if needed)
-  const activeChallenges = challengesState.challenges.get();
+export default function ChallengesScreen() {
+  // Subscribe directly to the computed observable for active challenges
+  // useSelector returns a plain JS value from the computed observable
+  const activeChallenges = useSelector(activeChallenges$);
 
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>⚔️ Challenge Toggle</Text>
       <FlatList
         data={activeChallenges}
-        keyExtractor={(item) => item.challenge_id}
-        renderItem={({ item }) => <ChallengeToggler challenge={item} />}
+        keyExtractor={(item) => item.challenge_subscription_id}
+        renderItem={({ item }) => (
+          <View style={styles.card}>
+            <ChallengeToggler
+              challenge={item}
+              activeChallenges={activeChallenges}
+            />
+          </View>
+        )}
       />
     </View>
   );
@@ -25,12 +31,21 @@ export default function ChallengeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
-    padding: 16,
+    backgroundColor: theme.colors.background,
+    padding: theme.spacing.medium,
   },
-  header: {
-    fontSize: 24,
-    fontWeight: "bold",
-    marginBottom: 10,
+  card: {
+    backgroundColor: theme.colors.cardBackground,
+    marginBottom: theme.spacing.medium,
+    borderRadius: theme.borderRadius.medium,
+    shadowColor: theme.colors.shadowColor,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  text: {
+    color: theme.colors.textPrimary,
+    fontSize: 18,
   },
 });

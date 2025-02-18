@@ -27,7 +27,8 @@ export const user$ = observable({
 export const loading$ = observable(true);
 
 export const challengesStore$ = observable({
-  challenges: [],
+  activeChallenges: [],
+  availableChallenges: [],
   loading: false,
   error: null,
 });
@@ -42,7 +43,7 @@ export const fetchAndProcessEvents = async () => {
       return;
     }
 
-    console.log("🚀 Fetching user events...");
+    console.log("🔎 fetchAndProcessEvents(): Fetching events...");
     const { data, error } = await supabase
       .from("events")
       .select("*, notified")
@@ -126,7 +127,7 @@ export const fetchAndProcessEvents = async () => {
 
     // Push updates to Supabase only if necessary
     if (eventsToUpdate.length) {
-      console.log(`🚀 Updating ${eventsToUpdate.length} events in Supabase...`);
+      console.log(`💾 Updating ${eventsToUpdate.length} events in Supabase...`);
       await Promise.all(
         eventsToUpdate.map(async (event) =>
           supabase

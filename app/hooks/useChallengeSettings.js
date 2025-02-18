@@ -1,43 +1,16 @@
-// hooks/useChallengeSettings.js
 import { useEffect, useState } from "react";
-import { challengesStore$ } from "../../state/stateObservables";
 import {
-  fetchChallengeOptions,
+  challengeLibraryStore$,
+  checkedOutChallengesStore$,
   updateChallengeSettings,
-} from "../../utils/challengesUtils";
-
-// This helper wraps a promise and logs "Waiting for update to complete..." every 5 seconds.
-function updateWithLogging(promise) {
-  return new Promise((resolve, reject) => {
-    const interval = setInterval(() => {
-      console.log("Waiting for update to complete...");
-    }, 5000);
-
-    promise
-      .then((res) => {
-        clearInterval(interval);
-        resolve(res);
-      })
-      .catch((err) => {
-        clearInterval(interval);
-        reject(err);
-      });
-  });
-}
+} from "../../utils/challengesUtils"; // or your state file
 
 export default function useChallengeSettings(challenge) {
-  // Initialize generic settings to include useLocation and favoriteLocations.
-  const initialGenericSettings = (typeof challenge.pattern === "object" &&
-    challenge.pattern.genericSettings) || {
-    useLocation: false,
-    favoriteLocations: [],
-  };
-
+  // Existing state initializations…
   const [patternType, setPatternType] = useState(
     (typeof challenge.pattern === "object" && challenge.pattern.patternType) ||
       "fixed"
   );
-
   const [fixedDays, setFixedDays] = useState(
     (typeof challenge.pattern === "object" && challenge.pattern.fixedDays) || {
       Mon: { active: false, startTime: "", endTime: "" },
@@ -49,92 +22,88 @@ export default function useChallengeSettings(challenge) {
       Sun: { active: false, startTime: "", endTime: "" },
     }
   );
-
   const [rollingSegments, setRollingSegments] = useState(
-    (typeof challenge.pattern === "object" && challenge.pattern.segments) || [
-      { type: "active", days: 2, startTime: "09:00", endTime: "" },
-      { type: "active", days: 2, startTime: "17:00", endTime: "" },
-      { type: "rest", days: 2 },
-    ]
+    (typeof challenge.pattern === "object" && challenge.pattern.segments) || []
   );
-
   const [useLocation, setUseLocation] = useState(
-    initialGenericSettings.useLocation
+    (typeof challenge.pattern === "object" &&
+      challenge.pattern.genericSettings?.useLocation) ||
+      false
   );
-  // New state for favoriteLocations.
   const [favoriteLocations, setFavoriteLocations] = useState(
-    initialGenericSettings.favoriteLocations || []
+    (typeof challenge.pattern === "object" &&
+      challenge.pattern.genericSettings?.favoriteLocations) ||
+      []
   );
-
   const [specificSettings, setSpecificSettings] = useState(
     (typeof challenge.pattern === "object" &&
       challenge.pattern.specificSettings) ||
       {}
   );
+  // For challenge-specific options fetched from the global challenge library
   const [availableOptions, setAvailableOptions] = useState(null);
 
+  // New: Look up available options from the global challenge library based on challenge ID.
   useEffect(() => {
-    async function loadOptions() {
-      const options = await fetchChallengeOptions(challenge.challenge_id);
-      setAvailableOptions(options);
-      if (options && Object.keys(specificSettings).length === 0) {
-        const defaults = {};
-        Object.entries(options).forEach(([key, option]) => {
-          defaults[key] = option.default;
-        });
-        console.log("Pre-filling specificSettings with defaults:", defaults);
-        setSpecificSettings(defaults);
+    const library = challengeLibraryStore$.get();
+    if (library && Array.isArray(library)) {
+      const found = library.find(
+        (item) => item.challenge_id === challenge.challenge_id
+      );
+      if (found && found.options) {
+        setAvailableOptions(found.options);
       }
     }
-    loadOptions();
   }, [challenge.challenge_id]);
 
-  // Build the final settings object. Only include favoriteLocations if useLocation is true.
-  const buildSettingsObject = () => {
-    const genericSettings = { useLocation };
-    if (useLocation) {
-      genericSettings.favoriteLocations = favoriteLocations;
-    }
-    const baseSettings =
-      patternType === "fixed"
-        ? { patternType, fixedDays, genericSettings }
-        : { patternType, segments: rollingSegments, genericSettings };
-    return { ...baseSettings, specificSettings };
-  };
+  // Build the final settings object from state
+  const buildSettingsObject = () => ({
+    patternType,
+    fixedDays: patternType === "fixed" ? fixedDays : undefined,
+    segments: patternType === "rolling" ? rollingSegments : undefined,
+    genericSettings: { useLocation, favoriteLocations },
+    specificSettings,
+  });
 
+  // Save settings: update Supabase and optimistically update global state if desired
   const saveSettings = async () => {
-    console.log(
-      "💾 saveSettings(): Saving user preferences for current challenge..."
-    );
     const settings = buildSettingsObject();
-    // Now use challenge_subscription_id (the new primary key) to update the record.
+    console.log("💾 saveSettings(): Saving settings...", settings);
     if (!challenge.challenge_subscription_id) {
       throw new Error("Challenge subscription ID is missing.");
     }
+
+    // Save previous settings for potential rollback
     const prevSettings = challenge.pattern;
-    // Optimistically update the global observable using .set()
-    challengesStore$.set((prevState) => ({
-      ...prevState,
-      challenges: prevState.challenges.map((ch) =>
-        ch.challenge_subscription_id === challenge.challenge_subscription_id
-          ? { ...ch, pattern: settings }
-          : ch
-      ),
-    }));
+
+    // Optimistically update the global store for checked-out challenges.
+    checkedOutChallengesStore$.set(
+      checkedOutChallengesStore$
+        .get()
+        .map((ch) =>
+          ch.challenge_subscription_id === challenge.challenge_subscription_id
+            ? { ...ch, pattern: settings }
+            : ch
+        )
+    );
+
     try {
-      const result = await updateWithLogging(
-        updateChallengeSettings(challenge.challenge_subscription_id, settings)
+      const result = await updateChallengeSettings(
+        challenge.challenge_subscription_id,
+        settings
       );
       return result;
     } catch (error) {
-      challengesStore$.set((prevState) => ({
-        ...prevState,
-        challenges: prevState.challenges.map((ch) =>
-          ch.challenge_subscription_id === challenge.challenge_subscription_id
-            ? { ...ch, pattern: prevSettings }
-            : ch
-        ),
-      }));
+      // Rollback the optimistic update if the API call fails
+      checkedOutChallengesStore$.set(
+        checkedOutChallengesStore$
+          .get()
+          .map((ch) =>
+            ch.challenge_subscription_id === challenge.challenge_subscription_id
+              ? { ...ch, pattern: prevSettings }
+              : ch
+          )
+      );
       throw error;
     }
   };
@@ -152,7 +121,7 @@ export default function useChallengeSettings(challenge) {
     setFavoriteLocations,
     specificSettings,
     setSpecificSettings,
-    availableOptions,
+    availableOptions, // now populated from the global challenge library lookup
     saveSettings,
     buildSettingsObject,
   };

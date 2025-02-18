@@ -3,11 +3,9 @@ import {
   startLocationTracking,
   updateTravelInfoBasedOnTime,
 } from "../utils/calendarUtils";
+import { refreshAllChallenges } from "../utils/challengesUtils";
 import { calculateTimeUntilLeave } from "../utils/helperUtils";
-import {
-  events$,
-  scheduleEventNotifications,
-} from "../utils/notificationUtils";
+import { events$ } from "../utils/notificationUtils";
 import { fetchAndProcessEvents, user$ } from "./stateObservables";
 import { supabase } from "./supabaseClient";
 
@@ -20,7 +18,7 @@ supabase.auth.onAuthStateChange(async (event, session) => {
     initialized = true;
     console.log("🟢 User logged in, updating state...");
 
-    // ✅ Set user info
+    // Set user info
     user$.set({
       id: session.user.id,
       name: session.user.user_metadata?.name || "Unknown",
@@ -28,24 +26,22 @@ supabase.auth.onAuthStateChange(async (event, session) => {
       loggedIn: true,
     });
 
-    // ✅ Fetch initial location
-    console.log("📍 Fetching initial location...");
+    // Fetch initial location
     let initialLocation = await getUserLocation();
     if (!initialLocation) {
       console.warn("⚠️ Failed to get location. Retrying...");
       initialLocation = await getUserLocation();
     }
 
-    // ✅ Proceed only if location is available
+    // Proceed only if location is available
     if (initialLocation) {
-      console.log(`📍 Location ready: ${initialLocation}`);
       await startLocationTracking(); // Start tracking
 
-      // ✅ Fetch events and start travel/notifications
-      console.log("🚀 Fetching events after location readiness...");
+      // Fetch events and start travel/notifications
       await fetchAndProcessEvents();
 
       startTravelUpdateChecker();
+      await refreshAllChallenges();
     } else {
       console.error("❌ Failed to retrieve location. Can't proceed.");
     }
@@ -59,7 +55,7 @@ supabase.auth.onAuthStateChange(async (event, session) => {
 // Start Travel Update Checker Every 5 Minutes
 export const startTravelUpdateChecker = () => {
   if (!travelUpdateInterval) {
-    console.log("🚀 Starting travel update checker...");
+    console.log("👍 Starting travel update checker...");
 
     travelUpdateInterval = setInterval(() => {
       const nextEvent = events$

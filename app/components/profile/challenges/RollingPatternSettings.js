@@ -1,6 +1,7 @@
-// components/challenges/RollingPatternSettings.js
 import React from "react";
-import { Button, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
+import { theme } from "../../../styles/theme";
+import GreenButton from "../../assetComponents/GreenButton";
 import SegmentItem from "./SegmentItem";
 
 export default function RollingPatternSettings({ segments, onChange }) {
@@ -28,7 +29,7 @@ export default function RollingPatternSettings({ segments, onChange }) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>Rolling Pattern Segments</Text>
+      <Text style={styles.header}>Set up a repeating rolling pattern:</Text>
       {segments.map((segment, index) => (
         <SegmentItem
           key={index}
@@ -37,21 +38,22 @@ export default function RollingPatternSettings({ segments, onChange }) {
           onRemove={() => removeSegment(index)}
         />
       ))}
-      <Button title="Add Segment" onPress={addSegment} />
+      <GreenButton title="Add Segment" onPress={addSegment} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    padding: 10,
-    backgroundColor: "#f0f0f0",
-    borderRadius: 8,
-    marginVertical: 10,
+    padding: theme.spacing.medium,
+    backgroundColor: theme.colors.sectionBackground,
+    borderRadius: theme.borderRadius.medium,
+    marginVertical: theme.spacing.medium,
   },
   header: {
-    fontSize: 16,
-    fontWeight: "bold",
-    marginBottom: 10,
+    fontSize: theme.typography.bodyFontSize,
+    color: theme.colors.textPrimary,
+    fontWeight: theme.typography.headerFontWeight,
+    marginBottom: theme.spacing.medium,
   },
 });

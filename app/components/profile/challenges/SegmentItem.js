@@ -1,90 +1,138 @@
-// components/challenges/SegmentItem.js
 import React from "react";
-import { Button, StyleSheet, Text, TextInput, View } from "react-native";
-import { formatTimeInput } from "../../../../utils/helperUtils";
+import { StyleSheet, Switch, Text, TextInput, View } from "react-native";
+import { theme } from "../../../styles/theme";
+import DismissButton from "../../assetComponents/DismissButton";
+import TimeInput from "./TimeInput";
 
 export default function SegmentItem({ segment, onChange, onRemove }) {
-  // segment: { type, days, startTime, endTime }
+  const toggleType = () => {
+    onChange({
+      ...segment,
+      type: segment.type === "active" ? "rest" : "active",
+    });
+  };
+
+  const handleInputChange = (field, value) => {
+    onChange({
+      ...segment,
+      [field]: value,
+    });
+  };
+
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>Segment</Text>
-      <View style={styles.row}>
-        <Text>Type:</Text>
-        <Button
-          title={segment.type === "active" ? "Active" : "Rest"}
-          onPress={() =>
-            onChange({
-              ...segment,
-              type: segment.type === "active" ? "rest" : "active",
-            })
-          }
-        />
+      {/* Top Row: Toggle, Type Text, and Delete Icon */}
+      <View style={styles.topRow}>
+        <View style={styles.switchContainer}>
+          <Switch
+            value={segment.type === "active"}
+            onValueChange={toggleType}
+            trackColor={{
+              false: theme.colors.textSecondary,
+              true: theme.colors.greenButtonBackground,
+            }}
+            thumbColor={theme.colors.textPrimary}
+          />
+          <Text style={styles.typeText}>
+            {segment.type === "active" ? "Active" : "Rest"}
+          </Text>
+        </View>
+
+        <DismissButton onPress={onRemove} />
       </View>
-      <View style={styles.row}>
-        <Text>Days:</Text>
+
+      {/* Middle Row: Days Input */}
+      <View style={styles.middleRow}>
+        <Text style={styles.label}>For</Text>
         <TextInput
-          style={styles.input}
-          keyboardType="numeric"
+          style={styles.daysInput}
           value={segment.days.toString()}
-          onChangeText={(text) => {
-            const days = parseInt(text, 10) || 0;
-            onChange({ ...segment, days });
-          }}
+          onChangeText={(value) =>
+            handleInputChange("days", parseInt(value, 10) || 0)
+          }
+          placeholder="#"
+          keyboardType="numeric"
+          maxLength={2}
         />
+        <Text style={styles.label}>days</Text>
       </View>
+
+      {/* Bottom Row: Time Inputs (Active Only) */}
       {segment.type === "active" && (
-        <>
-          <View style={styles.row}>
-            <Text>Start Time:</Text>
-            <TextInput
-              style={styles.input}
-              value={segment.startTime}
-              onChangeText={(text) =>
-                onChange({ ...segment, startTime: formatTimeInput(text) })
-              }
-              placeholder="HH:MM"
-            />
-          </View>
-          <View style={styles.row}>
-            <Text>End Time:</Text>
-            <TextInput
-              style={styles.input}
-              value={segment.endTime}
-              onChangeText={(text) =>
-                onChange({ ...segment, endTime: formatTimeInput(text) })
-              }
-              placeholder="Optional"
-            />
-          </View>
-        </>
+        <View style={styles.bottomRow}>
+          <TimeInput
+            value={segment.startTime}
+            onChange={(value) => handleInputChange("startTime", value)}
+            placeholder="Start (optional)"
+          />
+          <TimeInput
+            value={segment.endTime}
+            onChange={(value) => handleInputChange("endTime", value)}
+            placeholder="End (optional)"
+          />
+        </View>
       )}
-      <Button title="Remove Segment" onPress={onRemove} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: "#fff",
-    padding: 10,
-    marginVertical: 5,
-    borderRadius: 8,
-    elevation: 1,
+    backgroundColor: theme.colors.cardBackground,
+    borderRadius: theme.borderRadius.medium,
+    padding: theme.spacing.small,
+    marginVertical: theme.spacing.xsmall,
+    shadowColor: theme.colors.shadowColor,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
   },
-  label: {
-    fontWeight: "bold",
-    marginBottom: 5,
+  topRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: theme.spacing.small,
   },
-  row: {
+  switchContainer: {
     flexDirection: "row",
     alignItems: "center",
-    marginVertical: 5,
+    gap: theme.spacing.small,
   },
-  input: {
+  typeText: {
+    color: theme.colors.textPrimary,
+    fontSize: theme.typography.labelFontSize,
+    fontWeight: "bold",
+  },
+  trashIcon: {
+    fontSize: 24,
+    color: theme.colors.accent,
+    padding: theme.spacing.small,
+  },
+  middleRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    marginVertical: theme.spacing.xsmall,
+    gap: theme.spacing.small,
+  },
+  label: {
+    color: theme.colors.textPrimary,
+    fontSize: theme.typography.labelFontSize,
+  },
+  daysInput: {
+    backgroundColor: theme.colors.background,
+    color: theme.colors.textPrimary,
     borderWidth: 1,
-    borderColor: "#ccc",
-    padding: 5,
-    flex: 1,
-    marginLeft: 5,
+    borderColor: theme.colors.textSecondary,
+    borderRadius: theme.borderRadius.small,
+    width: 50,
+    textAlign: "center",
+    paddingVertical: theme.spacing.xsmall,
+  },
+  bottomRow: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    marginTop: theme.spacing.small,
+    gap: theme.spacing.small,
   },
 });

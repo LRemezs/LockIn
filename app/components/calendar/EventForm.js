@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { handleSaveEvent, resetEventForm } from "../../../utils/eventHandlers";
 import { formatTimeInput, formatTimeToHHMM } from "../../../utils/helperUtils";
-import LocationSearch from "./LocationSearch";
+import LocationSearch from "../assetComponents/LocationSearch";
 
 export default function EventForm({
   visible,

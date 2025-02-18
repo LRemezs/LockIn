@@ -1,20 +1,33 @@
-// components/challenges/PatternSelector.js
 import React from "react";
-import { Button, StyleSheet, View } from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { theme } from "../../../styles/theme";
 
 export default function PatternSelector({ patternType, setPatternType }) {
   return (
     <View style={styles.container}>
-      <Button
-        title="Fixed Pattern"
+      {/* Fixed Pattern Button */}
+      <TouchableOpacity
+        style={[
+          styles.button,
+          patternType === "fixed" ? styles.activeButton : styles.inactiveButton,
+        ]}
         onPress={() => setPatternType("fixed")}
-        color={patternType === "fixed" ? "green" : "gray"}
-      />
-      <Button
-        title="Rolling Pattern"
+      >
+        <Text style={styles.buttonText}>Fixed Pattern</Text>
+      </TouchableOpacity>
+
+      {/* Rolling Pattern Button */}
+      <TouchableOpacity
+        style={[
+          styles.button,
+          patternType === "rolling"
+            ? styles.activeButton
+            : styles.inactiveButton,
+        ]}
         onPress={() => setPatternType("rolling")}
-        color={patternType === "rolling" ? "green" : "gray"}
-      />
+      >
+        <Text style={styles.buttonText}>Rolling Pattern</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -23,6 +36,29 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: "row",
     justifyContent: "space-around",
-    marginVertical: 10,
+    marginVertical: theme.spacing.medium,
+  },
+  button: {
+    flex: 1,
+    marginHorizontal: theme.spacing.small,
+    paddingHorizontal: theme.spacing.medium,
+    borderRadius: theme.borderRadius.medium,
+    alignItems: "center",
+    shadowColor: theme.colors.shadowColor,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    justifyContent: "center",
+  },
+  activeButton: {
+    backgroundColor: theme.colors.greenButtonBackground,
+  },
+  inactiveButton: {
+    backgroundColor: theme.colors.grayButtonBackground,
+  },
+  buttonText: {
+    color: theme.colors.textPrimary,
+    fontSize: theme.typography.bodyFontSize,
+    fontWeight: "600",
   },
 });

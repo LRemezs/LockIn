@@ -1,17 +1,34 @@
-// components/challenges/LocationPicker.js
 import React from "react";
 import { StyleSheet, Switch, Text, View } from "react-native";
+import { theme } from "../../../styles/theme";
+import LocationSearch from "../../assetComponents/LocationSearch";
 
-export default function LocationPicker({ useLocation, onToggle }) {
+export default function LocationPicker({
+  useLocation,
+  onToggle,
+  onLocationSelect, // Callback to update the selected location in your hook
+  defaultLocation, // The current selected location (if any) from your settings state
+}) {
   return (
     <View style={styles.container}>
       <View style={styles.row}>
         <Text style={styles.label}>Use Location:</Text>
-        <Switch value={useLocation} onValueChange={onToggle} />
+        <Switch
+          value={useLocation}
+          onValueChange={onToggle}
+          trackColor={{
+            false: theme.colors.switchTrackOff,
+            true: theme.colors.switchTrackOn,
+          }}
+          thumbColor={theme.colors.switchThumb}
+        />
       </View>
       {useLocation && (
-        <View style={styles.favorites}>
-          <Text>Favorite locations dropdown goes here.</Text>
+        <View style={styles.searchContainer}>
+          <LocationSearch
+            onLocationSelect={onLocationSelect}
+            defaultValue={defaultLocation}
+          />
         </View>
       )}
     </View>
@@ -20,19 +37,20 @@ export default function LocationPicker({ useLocation, onToggle }) {
 
 const styles = StyleSheet.create({
   container: {
-    marginVertical: 10,
+    marginVertical: theme.spacing.medium,
   },
   row: {
     flexDirection: "row",
     alignItems: "center",
   },
   label: {
-    marginRight: 10,
+    color: theme.colors.textPrimary,
+    fontSize: theme.typography.labelFontSize,
   },
-  favorites: {
-    marginTop: 5,
-    padding: 8,
-    backgroundColor: "#e0e0e0",
-    borderRadius: 4,
+  searchContainer: {
+    marginTop: theme.spacing.small,
+    padding: theme.spacing.small,
+    backgroundColor: theme.colors.sectionBackground,
+    borderRadius: theme.borderRadius.small,
   },
 });
