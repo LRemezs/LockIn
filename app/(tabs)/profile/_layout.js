@@ -23,7 +23,7 @@ export default function ProfileLayout() {
       />
       <Stack.Screen
         name="browse"
-        options={{ headerTitle: "Browse Challenges" }}
+        options={{ headerTitle: "🔎 Browse Challenges" }}
       />
       <Stack.Screen
         name="achievementLogs"

@@ -1,4 +1,5 @@
 import { useObservable } from "@legendapp/state/react";
+import { useRouter } from "expo-router";
 import React from "react";
 import {
   ActivityIndicator,
@@ -11,6 +12,7 @@ import { activeChallenges$ } from "../../../utils/challengesUtils";
 import ChallengeButton from "./ChallengeButton";
 
 export default function ChallengeScroll() {
+  const router = useRouter();
   // Subscribe directly to the computed observable for active challenges
   const activeChallenges = [...useObservable(activeChallenges$).get()];
 
@@ -42,10 +44,12 @@ export default function ChallengeScroll() {
           renderItem={({ item }) => (
             <ChallengeButton
               id={item.challenge_id}
-              name={item.challenge_name}
-              onPress={() => {
-                console.log(`✒️ Challenge ${item.challenge_name} selected...`);
-              }}
+              name={item.challenges_options?.challenge_name}
+              onPress={() =>
+                router.push(
+                  `/dashboard/challenges/${item.challenges_options?.challenge_name}`
+                )
+              }
             />
           )}
           showsHorizontalScrollIndicator={true}

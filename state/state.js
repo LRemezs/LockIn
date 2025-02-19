@@ -6,6 +6,7 @@ import {
 import { refreshAllChallenges } from "../utils/challengesUtils";
 import { calculateTimeUntilLeave } from "../utils/helperUtils";
 import { events$ } from "../utils/notificationUtils";
+import { refreshAllQuests } from "../utils/questsUtils";
 import { fetchAndProcessEvents, user$ } from "./stateObservables";
 import { supabase } from "./supabaseClient";
 
@@ -42,6 +43,7 @@ supabase.auth.onAuthStateChange(async (event, session) => {
 
       startTravelUpdateChecker();
       await refreshAllChallenges();
+      await refreshAllQuests();
     } else {
       console.error("❌ Failed to retrieve location. Can't proceed.");
     }
