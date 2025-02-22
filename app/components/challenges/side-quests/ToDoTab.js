@@ -115,12 +115,6 @@ export default function ToDoTab() {
               {/* Buttons Fixed at Bottom */}
               <View style={styles.modalButtons}>
                 <TouchableOpacity
-                  style={styles.saveButton}
-                  onPress={() => handleEditSubmit(editingQuest)}
-                >
-                  <Text style={styles.saveButtonText}>Save</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
                   style={styles.closeButton}
                   onPress={() => setEditingQuest(null)}
                 >
@@ -177,9 +171,6 @@ const styles = StyleSheet.create({
     color: theme.colors.textPrimary,
     textAlign: "center",
   },
-  modalScroll: {
-    maxHeight: "60%", // Ensures the form fields scroll
-  },
   modalScrollContent: {
     paddingBottom: theme.spacing.medium,
   },
@@ -187,20 +178,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     marginTop: theme.spacing.medium,
-  },
-  saveButton: {
-    backgroundColor: theme.colors.greenButtonBackground,
-    paddingVertical: theme.spacing.medium,
-    paddingHorizontal: theme.spacing.large,
-    borderRadius: theme.borderRadius.small,
-    alignItems: "center",
-    flex: 1,
-    marginRight: theme.spacing.small,
-  },
-  saveButtonText: {
-    color: theme.colors.greenButtonText,
-    fontSize: theme.typography.bodyFontSize,
-    fontWeight: "bold",
   },
   closeButton: {
     backgroundColor: theme.colors.grayButtonBackground,

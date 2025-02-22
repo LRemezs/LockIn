@@ -200,13 +200,9 @@ export default function SQForm({ initialData = {}, onSubmit, mode = "save" }) {
           onChangeText={setDueDate}
         />
       )}
-
-      {/* SHOW SAVE BUTTON ONLY FOR 'SAVE' MODE */}
-      {mode === "save" && (
-        <TouchableOpacity style={styles.button} onPress={handleSubmit}>
-          <Text style={styles.buttonText}>Save New Quest</Text>
-        </TouchableOpacity>
-      )}
+      <TouchableOpacity style={styles.button} onPress={handleSubmit}>
+        <Text style={styles.buttonText}>Save New Quest</Text>
+      </TouchableOpacity>
     </View>
   );
 }
